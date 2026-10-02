@@ -1,85 +1,105 @@
 # StudioOps
 
-<img src="assets\dashboard.png" width="80%">
+<img src="assets/dashboard.png" width="80%">
 
-<h3>StudioOps AI is an operations dashboard for managing a virtual studio. It includes:</h3>
+<h3>StudioOps is a modern operations dashboard & 3D spatial orchestration engine for virtual studios. It includes:</h3>
 
-- A live 2D interactive spatial map across four interconnected biophilic biomes
-- Team roster and real-time status management
-- Kanban and agenda task views
-- Workload and dependency tracking
-- AI agent monitoring and draft comparison
-- Optional 3D campus exploration & character follow camera
+- **Modern Open-Plan 3D Campus**: Realistic architectural visualization built with Three.js across four distinct biophilic biomes
+- **Live 2D Spatial Floor Plan**: High-density interactive dispatch map in the Mission Control Bento Grid
+- **Workspace Layout Engine**: Instant dynamic toggle between **Open-Plan** (unobstructed modern layout) and **Original** (enclosed partitions)
+- **Interactive 3D Object Inspector**: Click-to-inspect raycasting with live bounding-box highlights on workstations, conference suites, phone booths, amphitheaters, koi ponds, and biophilic planters
+- **Camera Toolbar & Presets**: Dedicated toolbar for Orbit, Isometric, Walkway Eye-Level, and 2D Map views
+- **Team Roster & Telemetry**: Real-time activity, division filters, and location command dispatchers
+- **Task Hub & AI Monitoring**: Kanban and agenda task workflows with version review and agent drafts
 
 <br>
 
-<img src="assets/office/studioops.gif" width="70%">
+## Campus Architecture & Biomes
 
-## Features
+StudioOps implements the authoritative spatial coordinates, floor elevations, and dimensions from `BLUEPRINT.md` with a premium architectural visual concept:
+**White Architectural Walls (`#F7F7F5`) + Walnut Furniture (`#4A2F20`) + Light Marble Flooring (`#D8D5CE`) + Black Ergonomic Task Chairs (`#111111`) + STC-42 Acoustic Glass Partitions + Indoor Greenery**.
 
-### Dashboard & Spatial Campus
+### The 4 Campus Biomes
+
+1. **ZN.01 · Focus Greenhouse** (`Level 01` · Elevation `0.0m`):
+   - Central living moss & stone terrarium lounge at `(0, 0)` with ficus and granite boulders
+   - Acoustic bamboo focus pods at `X = -8.0, Z = ±4.0` with sound-absorbing felt and cedar slats
+   - Collaborative felt lounge at `(8.0, -4.0)` with upholstered charcoal armchairs
+   - Perimeter window planter troughs along North and South glazing with Monstera Deliciosa and Sansevieria
+
+2. **ZN.02 · AI Synthesis Oasis** (`Level 02` · Elevation `4.4m`):
+   - Three 8-person walnut developer workstation islands (Island A, B, C) along `Z = 5.5` with dual 4K monitors and acoustic screens
+   - Traditional Tatami tea pavilion at `(-6.0, -2.0)` with cedar deck and solid walnut low table
+   - Four 5.5m microLED active telemetry displays on the North wall (`Z = -11.86m`)
+   - Fluted walnut matcha & espresso bar at `(13.5, -3.0)`
+
+3. **ZN.03 · Core Solarium** (`Level 03` · Elevation `8.8m`):
+   - Continuous unobstructed 2.5m central walkway (`Z = -1.25m` to `+1.25m`) with recessed floor LED guide lines
+   - Four modular walnut benching clusters for Leadership, Marketing, Engineering, and Customer Service
+   - Acoustic glass conference forum suite at `(-12.9, -9.25)` with boat-shaped walnut table and 75" presentation wall
+   - Soundproof PET acoustic phone booths at `(-14.6, 10.5)` and `(-12.4, 10.5)`
+   - Living moss pantry & cafe bar at `(11.8, -10.3)`
+   - Quiet sanctuary & prayer room at `(13.3, 10.15)`
+
+4. **ZN.04 · Sunken Amphitheater** (`Level 04` · Elevation `13.2m`):
+   - **Sunken Cedar Amphitheater** at `(-1.0, 3.5)`: Three tiered cedar risers with warm recessed LED step-lighting, charcoal acoustic cushions, walnut stage, dark metal lectern, and 120" AV presentation display
+   - **Reflective Koi Pond** at `(3.0, 9.0)`: Honed granite basin rim with mirror water surface, 5 floating natural slate stepping stones, and Japanese water lanterns
+   - **Timber Pergola Executive Canopy** at `(-6.0, -6.5)`: Cedar rafters, modular L-shaped outdoor sofa, and walnut coffee table
+   - **Recreation Zone**: Tournament billiards table, architectural ping pong, artisan inlaid chess table, yoga meadow, and rooftop espresso bar
+
+---
+
+## Interactive Systems & 3D HUD
+
+- **In-Canvas HUD (Left Panel)**:
+  - Quick-switch buttons for all 4 campus biomes and Full Campus view.
+  - Active workspace layout toggle: **Original** vs. **Open Plan**.
+- **Camera Toolbar (Bottom)**:
+  - `⟲ Orbit`: Smooth orbital camera around the active floor.
+  - `◧ Isometric`: Classic isometric axonometric perspective.
+  - `👁 Walkway`: Eye-level perspective along the central walkway.
+  - `⊞ 2D Map`: Orthographic-style top-down plan view.
+  - `⮂ Toggle Layout`: One-click toggle between open-plan and original partitions.
+- **Object Inspector (Right Panel)**:
+  - Raycasts and identifies any clicked 3D facility, workstation island, glass partition, conference room, phone booth, amphitheater, or koi pond.
+  - Highlights the selected object with an active cyan bounding box (`THREE.BoxHelper`).
+  - Displays hardware specs, materials, capacities, and acoustic ratings.
+
+---
+
+## Dashboard & Operations
 
 - **Mission Control Command Deck**: High-density Bento Grid layout featuring real-time telemetry, minimalist white aesthetic on frosted paper, studio pulse metrics, live event streams, and tactical action dispatchers.
-- **Live Campus Biomes**:
-  - `ZN.01`: **Focus Greenhouse** — Quiet bamboo pods, acoustic moss alcoves, and deep-work terrariums.
-  - `ZN.02`: **AI Synthesis Oasis** — Japanese digital tea pavilion, autonomous agent stations, and live streaming monitors.
-  - `ZN.03`: **Core Solarium** — Central botanical glass dome with 4 divisional team clusters and floating glass meeting pods.
-  - `ZN.04`: **Sunken Amphitheater** — Stepped cedar seating, reflective koi pond, and acoustic canopy for company standups and breaks.
+- **Team Roster & Telemetry**: Real-time status for 13 team members across 4 divisions, with interactive filtering, 3D camera follow, and location commands (Standup, Lunch, Deep Focus, Rooftop, Back to work).
+- **Task Hub**: Kanban columns (Queued, In Progress, Needs Decision, Review, Done) with priority management, dependency tracking, and assignee suggestions.
+- **AI Agent Monitoring**: Version review and draft approval workflow for autonomous studio tasks.
 
-| |  |
-| :---: | :---: |
-| <img src="assets/img/1.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Focus Greenhouse" /> | <img src="assets/img/2.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="AI Synthesis Oasis" /> |
-| <img src="assets/img/3.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Core Solarium" /> | <img src="assets/img/4.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Sunken Amphitheater" /> |
+---
 
+## Keyboard Shortcuts
 
-## Campus Biomes Gallery
+| Shortcut | Action |
+|---|---|
+| `D` | Switch to Dashboard view |
+| `T` | Switch to Tasks view |
+| `E` | Switch to 3D Explore Campus view |
+| `N` | Open New Task dialog |
+| `1`–`4` | Switch campus biomes (`ZN.01` Focus Greenhouse to `ZN.04` Amphitheater) |
+| `0` | View full campus overview |
+| `/` | Focus division search or filter |
+| `Esc` | Return to Dashboard from 3D Explore or exit follow camera |
+| `?` | Open keyboard shortcuts help modal |
 
-| ZN.01 · Focus Greenhouse | ZN.02 · AI Synthesis Oasis |
-| :---: | :---: |
-| <img src="assets/canvas/1.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Focus Greenhouse" /> | <img src="assets/canvas/2.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="AI Synthesis Oasis" /> |
-| **ZN.03 · Core Solarium** | **ZN.04 · Sunken Amphitheater** |
-| <img src="assets/canvas/3.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Core Solarium" /> | <img src="assets/canvas/4.png" width="100%" height="240" style="object-fit: cover; border-radius: 8px;" alt="Sunken Amphitheater" /> |
-- View team members and their current status with real-time roster telemetry
-- Filter by division (Leadership, Marketing, Engineering & Design, Customer Service) or status
-- Select team members to view live coordinates, bios, and locations
-- Send group location commands (Lunch, Standup, Deep Focus, Rooftop/Pond, Routine, Back to work)
-- Review recent activity in the live studio terminal stream
+---
 
-### Task Hub
+## Requirements & Setup
 
-- Manage tasks in Kanban columns: Queued, Working, Review, and Done
-- View tasks in an agenda grouped by due date
-- Set priorities, due dates, and dependencies
-- Identify blocked tasks
-- Get assignee suggestions based on availability and division
+- **Node.js**: 22 or later
+- **npm**: 9 or later
 
-### AI Agents
-
-- Monitor active AI agents
-- Compare draft versions
-- Review approval history
-- Configure the Claude model and system prompt
-
-### Explore Campus (3D View)
-
-The 3D campus exploration view supports:
-
-- Dynamic biome navigation (`ZN.01`–`ZN.04` and Full Campus view)
-- Free camera orbit and character tracking
-- Team member focus directly from the dashboard
-- Returning to the dashboard with `Esc` or `D`
-
-## Requirements
-
-- Node.js 18 or later
-- npm 9 or later
-- Node.js 22 is recommended
-
-## Installation
+### Installation
 
 ```bash
-git clone https://github.com/ARUNAGIRINATHAN-K/studio-ops-ai.git
-cd studio-ops-ai
 npm install
 ```
 
@@ -89,63 +109,69 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Set `ANTHROPIC_API_KEY` in `.env` to enable AI agent generation. Without this key, the server uses simulated drafts.
+### Running the Application
 
-## Run the Application
-
-Start the development server:
+Start the development server (runs on port 3000):
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173), or use the port shown by the development server.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Start the production server:
+Build for production:
+
+```bash
+npm run build
+```
+
+Start the production full-stack server:
 
 ```bash
 npm start
 ```
 
-The production server runs at [http://127.0.0.1:3000](http://127.0.0.1:3000).
+### Run with Docker
 
-## Run with Docker
-
-You can run StudioOps AI inside a Docker container using Docker Compose:
+Start StudioOps using Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-## Keyboard Shortcuts
+---
 
-| Shortcut | Action |
-|---|---|
-| `D` | Open Dashboard |
-| `T` | Open Tasks |
-| `E` | Open Explore Campus |
-| `N` | Open the New Task dialog |
-| `1`–`4` | Switch campus biomes (Greenhouse, AI Oasis, Core Solarium, Amphitheater) |
-| `0` | View full campus overview |
-| `/` | Focus division search or filter |
-| `Esc` | Return to Dashboard from Explore |
+## Project Structure
 
-## Testing
-
-Run the full Playwright test suite:
-
-```bash
-npm test
+```
+.
+├── index.html              # Main application entry point (Bento Dashboard & 3D Shell)
+├── metadata.json           # AI Studio applet metadata & capabilities
+├── package.json            # Node.js dependencies and scripts
+├── vite.config.js          # Vite configuration with backend API proxy middleware
+├── BLUEPRINT.md            # Authoritative architectural dimensions and zoning framework
+├── DESIGN.md               # Design tokens, typography, and styling constitution
+├── README.md               # Project documentation and feature guide
+├── data/
+│   └── tasks.json          # Persistent task storage
+├── public/
+│   ├── favicon.svg         # Application icon
+│   ├── music.js            # Ambient relaxing audio synthesis
+│   ├── office.css          # 3D canvas and explore styles
+│   ├── office.js           # Core Three.js WebGL simulation engine & open-plan campus
+│   ├── tasks.css           # Task dialog & Kanban styles
+│   └── tasks.js            # In-memory and server task synchronization
+├── server/
+│   ├── server.js           # Backend API server for tasks and simulated AI agents
+│   └── agents.js           # Autonomous agent execution and prompt runner
+└── src/
+    ├── main.js             # Main application orchestrator & view switching
+    ├── dashboard/          # Mission control bento & 2D floor plan modules
+    ├── styles/             # Bento dashboard and 3D HUD CSS stylesheets
+    └── tasks/              # Task hub, agent monitor, and version review UI
 ```
 
-Run individual test modules:
-
-```bash
-node tests/dashboard.cjs
-node tests/kanban.cjs
-node tests/agent-review.cjs
-node tests/server.cjs
-```
+---
 
 ## License
 

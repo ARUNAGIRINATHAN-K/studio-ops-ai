@@ -2,9 +2,7 @@ node_modules
 dist
 data
 .env
-.env.local
 .git
-.gitignore
-.gemini
-tests
-*.log
+.dockerignore
+Dockerfile
+docker-compose.yml

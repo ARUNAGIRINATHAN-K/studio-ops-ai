@@ -1,23 +1,16 @@
-name: studioops-ai
-
 services:
-  app:
+  studioops:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: studioops-ai
-    restart: unless-stopped
+    container_name: studioops
     ports:
       - "3000:3000"
-    env_file:
-      - .env
     environment:
       - NODE_ENV=production
-      - HOST=0.0.0.0
       - PORT=3000
+      - HOST=0.0.0.0
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:
-      - studioops-data:/app/data
-
-volumes:
-  studioops-data:
-    driver: local
+      - ./data:/app/data
+    restart: unless-stopped

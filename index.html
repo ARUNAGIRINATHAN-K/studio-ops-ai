@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>StudioOps · Studio Operations</title>
+    <meta name="description" content="Studio Operations Dashboard &amp; Spatial Orchestration Engine with team telemetry, 4 campus biomes, and AI agent task management" />
+    <meta property="og:title" content="StudioOps · Studio Operations" />
+    <meta property="og:description" content="Studio Operations Dashboard &amp; Spatial Orchestration Engine with team telemetry, 4 campus biomes, and AI agent task management" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,6 +17,7 @@
     <link rel="stylesheet" href="/office.css" />
     <link rel="stylesheet" href="/tasks.css" />
     <link rel="stylesheet" href="/src/styles/dashboard-bento.css" />
+    <link rel="stylesheet" href="/src/styles/campus-hud.css" />
   </head>
   <body class="ui">
   <div id="dashboard-view" class="view-shell" data-view="dashboard">
@@ -181,6 +185,54 @@
         <label class="music-volume" for="musicVolume">Vol.<input type="range" id="musicVolume" min="0" max="100" value="25" aria-label="Music volume" /></label>
       </div>
     </div>
+
+    <!-- Modern Open-Plan Campus HUD -->
+    <nav class="campus-hud-left panel" id="campus-hud-left">
+      <div class="hud-brand-header">
+        <p class="mini-label">Interactive 3D</p>
+        <h2 class="nav-title">Studio Campus</h2>
+      </div>
+      <div class="hud-section-label">FLOOR SELECTION</div>
+      <div class="hud-floor-buttons">
+        <button type="button" class="hud-btn floor-btn" data-floor="1">
+          <span class="floor-tag">ZN.01</span>
+          <span>Focus Greenhouse</span>
+        </button>
+        <button type="button" class="hud-btn floor-btn" data-floor="2">
+          <span class="floor-tag">ZN.02</span>
+          <span>AI Synthesis Oasis</span>
+        </button>
+        <button type="button" class="hud-btn floor-btn active" data-floor="3">
+          <span class="floor-tag">ZN.03</span>
+          <span>Core Solarium</span>
+        </button>
+        <button type="button" class="hud-btn floor-btn" data-floor="4">
+          <span class="floor-tag">ZN.04</span>
+          <span>Sunken Amphitheater</span>
+        </button>
+        <button type="button" class="hud-btn floor-btn building-btn" data-floor="0">
+          <span>🏛 View Full Campus</span>
+        </button>
+      </div>
+      <div class="hud-section-label" style="margin-top: 10px;">WORKSPACE LAYOUT</div>
+      <div class="hud-layout-toggle" role="group" aria-label="Layout mode">
+        <button type="button" class="hud-tab" data-mode="ORIGINAL" id="hud-mode-orig">Original</button>
+        <button type="button" class="hud-tab active" data-mode="OPEN_PLAN" id="hud-mode-open">Open Plan</button>
+      </div>
+    </nav>
+
+    <!-- Bottom Camera Toolbar -->
+    <div class="campus-hud-toolbar panel" id="campus-hud-toolbar">
+      <button type="button" class="btn" id="btn-cam-orbit" title="Orbit View">⟲ Orbit</button>
+      <button type="button" class="btn" id="btn-cam-iso" title="Isometric Perspective">◧ Isometric</button>
+      <button type="button" class="btn" id="btn-cam-walkway" title="Walkway Eye-Level">👁 Walkway</button>
+      <button type="button" class="btn" id="btn-cam-top" title="Top-Down Floor Map">⊞ 2D Map</button>
+      <span class="toolbar-divider"></span>
+      <button type="button" class="btn" id="btn-toggle-layout" title="Toggle Open Plan / Original Layout">⮂ Toggle Layout</button>
+    </div>
+
+    <!-- Right Object Inspector -->
+    <aside class="campus-inspector-panel panel" id="object-inspector" hidden></aside>
   </div>
 
   <dialog id="taskDialog" aria-labelledby="taskHeading">
