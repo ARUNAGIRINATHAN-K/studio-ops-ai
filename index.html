@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>StudioOps · Studio Operations</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap"
+    />
+    <link rel="stylesheet" href="/office.css" />
+    <link rel="stylesheet" href="/tasks.css" />
+    <link rel="stylesheet" href="/src/styles/dashboard-bento.css" />
+  </head>
+  <body class="ui">
+  <div id="dashboard-view" class="view-shell" data-view="dashboard">
+    <header id="header">
+      <div id="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+            <circle cx="8" cy="8" r="3.2" />
+            <circle cx="16.5" cy="8.5" r="2.7" />
+            <path d="M2 19c0-3.6 2.7-6 6-6s6 2.4 6 6v1H2z" />
+            <path d="M15 20v-1c0-2-.6-3.7-1.7-5 .9-.6 2-1 3.2-1 3 0 5.5 2.2 5.5 5.5V20z" />
+          </svg>
+        </span>
+        <div class="brand-name">
+          <strong>StudioOps</strong>
+          <span class="brand-meta">13 people · 4 biomes</span>
+        </div>
+        <span class="brand-tagline">Biophilic Solarium Campus<br />for real teamwork</span>
+      </div>
+      <div class="header-card">
+        <div class="studio-pulse" id="studio-pulse"><span class="pulse-dot"></span><span><strong>STUDIO PULSE</strong><small id="studio-pulse-detail">Connecting to simulation</small></span></div>
+        <div class="header-metrics" aria-label="Live team counts"><span><strong id="header-active-count">—</strong><small>On campus</small></span><span><strong id="header-agent-count">—</strong><small>AI agents</small></span></div>
+        <div class="view-switch" role="tablist" aria-label="Application views">
+          <button type="button" class="view-tab active" data-view="dashboard" id="view-dashboard" role="tab" aria-selected="true">Dashboard</button>
+          <button type="button" class="view-tab" data-view="tasks" id="view-tasks" role="tab" aria-selected="false">Tasks</button>
+          <button type="button" class="view-tab" data-view="explore" id="view-explore" role="tab" aria-selected="false">Explore campus</button>
+        </div>
+        <div class="team-picker">
+          <label for="teamSelect">Team member</label>
+          <select id="teamSelect"><option value="">Pick initials</option></select>
+        </div>
+        <div id="teamFaces" aria-label="Team members"></div>
+        <button id="bLog" class="btn" aria-controls="log" aria-expanded="true">Log</button>
+        <button id="bTasks" class="btn primary">Tasks <span id="taskCount">0</span></button>
+      </div>
+    </header>
+    <nav id="floors" aria-label="Choose a campus biome">
+      <div class="bento-panel-heading"><div><p class="eyebrow">Spatial dispatch</p><h2 class="nav-title">Campus biomes</h2></div><span class="live-badge"><i></i> LIVE</span></div>
+      <div class="section-stack">
+        <button data-floor="1"><span class="floor-number">ZN.01</span><span class="biome-copy"><span>Focus Greenhouse</span><small>Bamboo pods · deep work</small></span><span class="biome-occupancy"><strong class="floor-count">0</strong><small>ON ZONE</small></span></button>
+        <button data-floor="2"><span class="floor-number">ZN.02</span><span class="biome-copy"><span>AI Synthesis Oasis</span><small>Agent tea pavilion</small></span><span class="biome-occupancy"><strong class="floor-count">0</strong><small>ON ZONE</small></span></button>
+        <button data-floor="3" aria-pressed="true"><span class="floor-number">ZN.03</span><span class="biome-copy"><span>Core Solarium</span><small>Central team hub</small></span><span class="biome-occupancy"><strong class="floor-count">0</strong><small>ON ZONE</small></span></button>
+        <button data-floor="4"><span class="floor-number">ZN.04</span><span class="biome-copy"><span>Sunken Amphitheater</span><small>Town hall · pond</small></span><span class="biome-occupancy"><strong class="floor-count">0</strong><small>ON ZONE</small></span></button>
+      </div>
+      <button data-floor="0" class="building-button">View full campus <span class="campus-count" id="campus-count">13</span></button>
+    </nav>
+    <section id="roster-telemetry" class="mission-panel" aria-labelledby="roster-heading">
+      <div class="bento-panel-heading"><div><p class="eyebrow">Live directory</p><h2 id="roster-heading">Team telemetry</h2></div><span id="roster-count" class="panel-counter">13 MEMBERS</span></div>
+      <div id="team-roster" class="team-roster" role="list" aria-label="Team member telemetry"></div>
+    </section>
+    <section id="plan-area" aria-labelledby="planHeading">
+      <header class="plan-toolbar">
+        <div class="plan-heading">
+          <p class="mini-label">Live occupancy</p>
+          <h2 id="planHeading">Workspace</h2>
+          <span id="planCount">Connecting to the office…</span>
+        </div>
+        <div class="plan-filters">
+          <span id="map-coordinate" class="map-coordinate">COORD —</span>
+          <div class="map-zoom" role="group" aria-label="Floor plan zoom"><button type="button" id="map-zoom-out" aria-label="Zoom out">−</button><span id="map-zoom-value">100%</span><button type="button" id="map-zoom-in" aria-label="Zoom in">+</button></div>
+          <label for="filter-division">Division
+            <select id="filter-division">
+              <option value="all">All divisions</option>
+              <option value="leadership">Leadership</option>
+              <option value="marketing">Marketing &amp; Business</option>
+              <option value="engineering">Engineering &amp; Design</option>
+              <option value="service">Customer Service</option>
+            </select>
+          </label>
+          <label for="filter-status">Status
+            <select id="filter-status">
+              <option value="all">All statuses</option>
+              <option value="working">Working</option>
+              <option value="free">Free</option>
+              <option value="moving">Moving</option>
+              <option value="away">On break</option>
+              <option value="drafting">AI drafting</option>
+            </select>
+          </label>
+          <button type="button" id="clear-plan-selection" class="btn" hidden>Clear selection</button>
+        </div>
+      </header>
+      <canvas id="floor-plan" tabindex="0" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Enter Space" aria-label="Live four-floor office map. Use arrow keys to select team members and Enter to open details." role="img"></canvas>
+      <div id="plan-legend" aria-label="Floor plan legend"></div>
+      <p id="plan-feedback" role="status" aria-live="polite"></p>
+    </section>
+    <section id="mission-telemetry" class="mission-panel" aria-labelledby="telemetry-heading">
+      <div class="bento-panel-heading"><div><p class="eyebrow">Operations overview</p><h2 id="telemetry-heading">Studio telemetry</h2></div><span class="telemetry-orbit" aria-hidden="true">◉</span></div>
+      <div class="telemetry-kpis" id="telemetry-kpis"></div>
+      <div class="agent-engine-row"><span class="agent-engine-icon">AI</span><span><strong>Agent engine</strong><small id="agent-engine-detail">Checking connections…</small></span><span id="agent-engine-status" class="engine-status">—</span></div>
+      <div class="telemetry-footer"><span>SIMULATION</span><span id="simulation-status">Initializing</span></div>
+    </section>
+    <section id="log" class="panel" aria-labelledby="logHeading">
+      <div class="log-head"><div><p class="eyebrow">Event stream</p><h2 id="logHeading">Studio terminal</h2></div><span class="terminal-live"><i></i> LIVE</span></div>
+      <div class="log-filter-bar" role="group" aria-label="Activity feed filter"><button type="button" class="active" data-log-filter="all">All events</button><button type="button" data-log-filter="team">Team</button><button type="button" data-log-filter="agents">AI agents</button></div>
+      <div id="logStats" class="log-stats" aria-label="Task summary"></div>
+      <button type="button" id="decisions" class="decisions" hidden></button>
+      <p id="logEmpty">No activity yet. Team movement and task updates will appear here.</p>
+      <ol id="logList"></ol>
+    </section>
+    <div id="followBar" class="panel" role="group" aria-label="Character camera" hidden>
+      <span id="followName"></span>
+      <button class="btn" id="fEyes" aria-pressed="false">Eyes</button>
+      <button class="btn" id="fChase" aria-pressed="false">Behind</button>
+      <button class="btn" id="fExit">Exit camera</button>
+    </div>
+    <section id="info" class="panel" aria-label="Team member details" hidden></section>
+    <div id="sceneStatus" role="status">Loading the office model…</div>
+    <footer id="controls" class="panel">
+      <div class="simulation-controls">
+        <button class="btn" id="bPause" aria-pressed="false">Pause</button>
+        <button class="btn" id="bRoutine" aria-pressed="true">Routine: on</button>
+        <button class="btn" id="bLunch">Lunch</button>
+        <button class="btn" id="bStandup">Standup</button>
+        <button class="btn" id="bFocus">Deep focus</button>
+        <button class="btn" id="bRoof">To the rooftop</button>
+        <button class="btn" id="bPray">Prayer time</button>
+        <button class="btn" id="bWork">Back to work</button>
+      </div>
+    </footer>
+    <p id="cameraHint">Drag to rotate · Shift + drag or right-click to pan · Scroll or pinch to zoom · Arrow keys to rotate</p>
+  </div>
+
+  <div id="tasks-view" class="view-shell" data-view="tasks" hidden>
+    <main class="task-shell-panel">
+      <header class="task-shell-header">
+        <div><p class="mini-label">Studio Operations</p><h1>Task hub</h1></div>
+        <div class="task-shell-actions">
+          <button type="button" id="task-shell-open" class="btn primary">New task</button>
+          <button type="button" class="view-tab" data-view="dashboard" id="tasks-back-dashboard">Return to dashboard</button>
+        </div>
+      </header>
+      <details id="agent-monitor-panel" class="agent-monitor-panel">
+        <summary><span>Connected AI agents</span><span id="agent-monitor-count">Connecting</span></summary>
+        <div id="agent-monitor-cards" class="agent-monitor-cards"><p class="agent-monitor-empty">Agent status is available when the task server is connected.</p></div>
+      </details>
+      <div id="task-hub-stats" class="task-hub-stats" aria-label="Task summary"></div>
+      <div class="task-hub-toolbar">
+        <div class="task-view-toggle" role="tablist" aria-label="Task view">
+          <button type="button" class="active" data-task-view="kanban" role="tab" aria-selected="true">Board</button>
+          <button type="button" data-task-view="agenda" role="tab" aria-selected="false">Agenda</button>
+        </div>
+        <div class="task-hub-filters">
+          <label for="hub-assignee-filter">Assignee<select id="hub-assignee-filter"><option value="all">Everyone</option></select></label>
+          <label for="hub-priority-filter">Priority<select id="hub-priority-filter"><option value="all">All priorities</option><option value="urgent">Urgent</option><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></label>
+        </div>
+      </div>
+      <p id="task-hub-feedback" role="status" aria-live="polite"></p>
+      <section id="kanban-panel" aria-label="Task board"><div id="task-kanban" class="task-kanban"></div></section>
+      <section id="agenda-panel" aria-label="Task agenda" hidden><div id="task-agenda" class="task-agenda"></div></section>
+    </main>
+  </div>
+
+  <div id="explore-view" class="view-shell" data-view="explore" hidden>
+    <canvas id="c" aria-label="Interactive model of a four-floor office"></canvas>
+    <div id="labels"></div>
+    <div id="explore-hud">
+      <button type="button" class="btn" id="exit-explore">← Back to dashboard</button>
+      <div class="camera-controls panel">
+        <button class="btn" id="bZoomIn" aria-label="Zoom in">+</button>
+        <button class="btn" id="bZoomOut" aria-label="Zoom out">−</button>
+        <button class="btn" id="bRotate" aria-label="Rotate camera">Rotate</button>
+        <button class="btn" id="bReset">Reset</button>
+        <button class="btn" id="bMusic" aria-pressed="false" aria-label="Play relaxing music">Music</button>
+        <label class="music-volume" for="musicVolume">Vol.<input type="range" id="musicVolume" min="0" max="100" value="25" aria-label="Music volume" /></label>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="taskDialog" aria-labelledby="taskHeading">
+      <header class="task-header">
+        <div><h1 id="taskHeading">Office tasks</h1><p>Manage your team's work in the virtual office.</p></div>
+        <button type="button" id="closeTasks">Close</button>
+      </header>
+      <p class="task-note" id="taskNote">Status is changed by hand. Characters are a simulation and do not run AI yet.</p>
+      <p id="taskFeedback" role="status" aria-live="polite"></p>
+      <div class="task-layout">
+        <form id="taskForm">
+          <h2>Create a task</h2>
+          <label for="taskTitle">Task</label>
+          <input id="taskTitle" required maxlength="160" placeholder="Example: Draft the content calendar" />
+          <label for="taskAssignee">Assignee</label>
+          <select id="taskAssignee" required></select>
+          <p id="assigneeSuggestion" class="assignee-suggestion" aria-live="polite"></p>
+          <div class="task-planning-fields">
+            <div><label for="taskPriority">Priority</label><select id="taskPriority"><option value="urgent">Urgent</option><option value="high">High</option><option value="normal" selected>Normal</option><option value="low">Low</option></select></div>
+            <div><label for="taskDueDate">Due date</label><input id="taskDueDate" type="date" /></div>
+          </div>
+          <fieldset class="dependency-picker"><legend>Blocked by</legend><div id="taskBlockedBy"><p class="dependency-empty">No open tasks to depend on.</p></div></fieldset>
+          <label for="taskBrief">Instructions <span>(optional)</span></label>
+          <textarea id="taskBrief" rows="4" maxlength="5000" placeholder="Describe what is needed and the expected result"></textarea>
+          <button class="task-primary" type="submit">Add task</button>
+          <p class="task-note" id="saveNote">Saved in this browser. Export tasks to keep a copy.</p>
+          <button type="button" id="exportTasks">Export tasks</button>
+        </form>
+        <section aria-labelledby="taskListHeading">
+          <h2 id="taskListHeading">Task list</h2>
+          <div class="task-filters">
+            <div>
+              <label for="taskFilter">Status</label>
+              <select id="taskFilter">
+                <option value="all">All statuses</option>
+                <option value="queued">Queued</option>
+                <option value="active">In progress</option>
+                <option value="blocked">Needs decision</option>
+                <option value="review">Needs review</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div>
+              <label for="agentFilter">Assignee</label>
+              <select id="agentFilter"><option value="all">All characters</option></select>
+            </div>
+          </div>
+          <p id="taskSummary"></p>
+          <div id="taskList"></div>
+        </section>
+      </div>
+    </dialog>
+  <dialog id="agentConfigDialog" aria-labelledby="agentConfigHeading">
+    <header class="task-header">
+      <div><p class="mini-label">Agent configuration</p><h1 id="agentConfigHeading">Configure agent</h1><p id="agentConfigRole"></p></div>
+      <button type="button" id="closeAgentConfig">Close</button>
+    </header>
+    <form id="agentConfigForm">
+      <label for="agentConfigModel">Model</label>
+      <select id="agentConfigModel"></select>
+      <label for="agentConfigSystem">System prompt</label>
+      <textarea id="agentConfigSystem" rows="12" maxlength="10000" required></textarea>
+      <p id="agentConfigFeedback" role="status" aria-live="polite"></p>
+      <div class="agent-config-actions">
+        <button type="button" id="previewAgentPrompt">Preview prompt</button>
+        <button type="button" id="resetAgentConfig">Reset defaults</button>
+        <button type="submit" class="task-primary">Save configuration</button>
+      </div>
+    </form>
+    <section id="agentPromptPreview" class="agent-prompt-preview" hidden aria-label="Prompt preview"></section>
+  </dialog>
+  <dialog id="shortcutHelpDialog" aria-labelledby="shortcutHelpHeading">
+    <header class="task-header">
+      <div><p class="mini-label">Keyboard</p><h1 id="shortcutHelpHeading">Shortcuts</h1></div>
+      <button type="button" id="closeShortcutHelp">Close</button>
+    </header>
+    <dl class="shortcut-list">
+      <div><dt>D</dt><dd>Dashboard</dd></div><div><dt>T</dt><dd>Tasks</dd></div><div><dt>E</dt><dd>Explore office</dd></div>
+      <div><dt>N</dt><dd>New task</dd></div><div><dt>1–4</dt><dd>Floor 1–4</dd></div><div><dt>/</dt><dd>Division filter</dd></div><div><dt>?</dt><dd>Shortcut help</dd></div><div><dt>Esc</dt><dd>Exit Explore</dd></div>
+    </dl>
+  </dialog>
+    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/tasks/legacy-task-ui.js"></script>
+    <script type="module" src="/music.js"></script>
+  </body>
+</html>

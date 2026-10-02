@@ -1,0 +1,23 @@
+name: studioops-ai
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: studioops-ai
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=3000
+    volumes:
+      - studioops-data:/app/data
+
+volumes:
+  studioops-data:
+    driver: local

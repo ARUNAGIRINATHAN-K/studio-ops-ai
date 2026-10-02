@@ -1,0 +1,24 @@
+{
+  "name": "studioops",
+  "private": true,
+  "description": "StudioOps: Studio Operations Dashboard & Spatial Orchestration Engine",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ARUNAGIRINATHAN-K/studioops-ai.git"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

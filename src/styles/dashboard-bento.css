@@ -1,0 +1,1112 @@
+/* 
+ * Ui — Style Reference implementation strictly based on DESIGN.md
+ * Theme: Light (Clinical blueprint on frosted paper)
+ */
+:root {
+  /* Colors */
+  --color-canvas: #f5f5f5;
+  --color-paper: #ffffff;
+  --color-surface-alt: #fafafa;
+  --color-ink: #0a0a0a;
+  --color-ink-soft: #171717;
+  --color-mid-gray: #737373;
+  --color-hairline: #e5e5e5;
+  --color-ember: #e7000b;
+
+  /* Typography — Font Families */
+  --font-geist: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Typography — Scale */
+  --text-caption: 12px;
+  --leading-caption: 1.33;
+  --tracking-caption: 0.6px;
+  --text-body: 14px;
+  --leading-body: 1.43;
+  --text-body-lg: 16px;
+  --leading-body-lg: 1.5;
+  --text-subheading: 18px;
+  --leading-subheading: 1.56;
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 1.33;
+  --tracking-heading-sm: -0.6px;
+  --text-heading: 30px;
+  --leading-heading: 1.2;
+  --tracking-heading: -0.75px;
+  --text-heading-lg: 36px;
+  --leading-heading-lg: 1.11;
+  --tracking-heading-lg: -0.9px;
+  --text-display: 48px;
+  --leading-display: 1.1;
+  --tracking-display: -2.4px;
+
+  /* Typography — Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* Spacing */
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-48: 48px;
+
+  /* Layout */
+  --page-max-width: 1280px;
+  --card-padding: 16px;
+  --element-gap: 8px;
+
+  /* Border Radii — DESIGN.md: 18px interactive, 24px containers */
+  --radius-cards: 24px;
+  --radius-buttons: 18px;
+  --radius-inputs: 18px;
+  --radius-badges: 18px;
+  --radius-nested: 10px;
+  --radius-small: 6px;
+
+  /* Shadows */
+  --shadow-subtle: oklab(0.145 -0.00000143796 0.00000340492 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px;
+
+  /* Surfaces */
+  --surface-canvas: #f5f5f5;
+  --surface-sidebar: #fafafa;
+  --surface-card: #ffffff;
+  --surface-input-fill: #f5f5f5;
+}
+
+body.ui:has(#dashboard-view.active) {
+  --mc-bg: var(--color-canvas);
+  --mc-panel: var(--color-paper);
+  --mc-panel-raised: var(--color-paper);
+  --mc-line: var(--color-hairline);
+  --mc-line-strong: var(--color-hairline);
+  --mc-muted: var(--color-mid-gray);
+  --mc-text: var(--color-ink);
+  --mc-green: var(--color-ink-soft);
+  --mc-cyan: var(--color-ink);
+  --mc-amber: var(--color-mid-gray);
+  --mc-violet: var(--color-ink-soft);
+
+  --paper: var(--color-paper);
+  --sheet: var(--color-paper);
+  --ink: var(--color-ink);
+  --ink-2: var(--color-mid-gray);
+  --line: var(--color-hairline);
+  --line-strong: var(--color-hairline);
+  --hover: var(--color-surface-alt);
+  --active: var(--color-canvas);
+  --inset: var(--color-canvas);
+  --muted: var(--color-mid-gray);
+  --accent: var(--color-ink);
+  --accent-dark: var(--color-ink-soft);
+  --accent-soft: var(--color-canvas);
+  --danger: var(--color-ember);
+  --shadow-sm: var(--shadow-subtle);
+  --shadow-md: var(--shadow-subtle);
+
+  font-family: var(--font-geist);
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  overflow: hidden;
+}
+
+body.ui:has(#dashboard-view.active) #dashboard-view {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(230px, 270px) minmax(360px, 1fr) minmax(265px, 310px);
+  grid-template-rows: 60px minmax(250px, auto) minmax(0, 1fr) 56px;
+  grid-template-areas:
+    "header header header"
+    "campus map telemetry"
+    "roster map activity"
+    "actions actions activity";
+  gap: 10px;
+  padding: 10px 14px 12px;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+/* Card Container Base — 24px radius, 1px solid #e5e5e5 border, subtle elevation shadow */
+body.ui:has(#dashboard-view.active) #header,
+body.ui:has(#dashboard-view.active) #floors,
+body.ui:has(#dashboard-view.active) #roster-telemetry,
+body.ui:has(#dashboard-view.active) #plan-area,
+body.ui:has(#dashboard-view.active) #mission-telemetry,
+body.ui:has(#dashboard-view.active) #log,
+body.ui:has(#dashboard-view.active) #controls {
+  position: relative;
+  inset: auto;
+  left: auto; right: auto; top: auto; bottom: auto;
+  transform: none;
+  width: auto; max-width: none; max-height: none;
+  min-width: 0; min-height: 0;
+  margin: 0;
+  z-index: 1;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle);
+  backdrop-filter: none;
+  overflow: hidden;
+}
+
+/* Header Component */
+body.ui:has(#dashboard-view.active) #header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+}
+body.ui:has(#dashboard-view.active) #header > #brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 0 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+body.ui:has(#dashboard-view.active) #brand strong {
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 22px;
+  letter-spacing: var(--tracking-heading-sm);
+  color: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) #brand .brand-meta {
+  color: var(--color-mid-gray);
+  font-size: var(--text-caption);
+  margin-top: 1px;
+}
+body.ui:has(#dashboard-view.active) .brand-mark {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border-radius: var(--radius-buttons);
+}
+body.ui:has(#dashboard-view.active) .brand-mark svg {
+  width: 18px;
+  height: 18px;
+}
+body.ui:has(#dashboard-view.active) .brand-tagline { display: none; }
+body.ui:has(#dashboard-view.active) .header-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0; border: 0; box-shadow: none; background: transparent;
+}
+body.ui:has(#dashboard-view.active) .studio-pulse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 14px;
+  border-right: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .pulse-dot,
+body.ui:has(#dashboard-view.active) .live-badge i,
+body.ui:has(#dashboard-view.active) .terminal-live i {
+  width: 6px;
+  height: 6px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .studio-pulse strong {
+  display: block;
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 10px;
+  letter-spacing: var(--tracking-caption);
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .studio-pulse small {
+  display: block;
+  max-width: 130px;
+  margin-top: 1px;
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .header-metrics {
+  display: flex;
+  gap: 14px;
+}
+body.ui:has(#dashboard-view.active) .header-metrics span {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 5px;
+}
+body.ui:has(#dashboard-view.active) .header-metrics strong {
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+body.ui:has(#dashboard-view.active) .header-metrics small {
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caption);
+}
+body.ui:has(#dashboard-view.active) .view-switch {
+  padding: 3px;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+}
+body.ui:has(#dashboard-view.active) .view-tab {
+  color: var(--color-mid-gray);
+  border-radius: var(--radius-buttons);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-caption);
+  padding: 5px 12px;
+}
+body.ui:has(#dashboard-view.active) .view-tab.active {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+body.ui:has(#dashboard-view.active) .view-tab:hover {
+  color: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .team-picker,
+body.ui:has(#dashboard-view.active) #teamFaces,
+body.ui:has(#dashboard-view.active) #bLog { display: none !important; }
+
+/* Primary Filled Button — Dark-on-light inversion (#0a0a0a fill, #fafafa text, 18px radius) */
+body.ui:has(#dashboard-view.active) #bTasks {
+  min-height: 34px;
+  padding: 0 14px;
+  border: none;
+  background: var(--color-ink);
+  color: var(--color-surface-alt);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-caption);
+  border-radius: var(--radius-buttons);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+body.ui:has(#dashboard-view.active) #bTasks:hover {
+  background: var(--color-ink-soft);
+}
+
+/* Campus Biomes Panel */
+body.ui:has(#dashboard-view.active) #floors {
+  grid-area: campus;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+body.ui:has(#dashboard-view.active) .bento-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 28px;
+}
+body.ui:has(#dashboard-view.active) .eyebrow {
+  margin: 0 0 1px;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: 11px;
+  letter-spacing: var(--tracking-caption);
+  text-transform: uppercase;
+}
+body.ui:has(#dashboard-view.active) .bento-panel-heading h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+
+/* Badge — Soft & Solid pill tags (18px radius) */
+body.ui:has(#dashboard-view.active) .live-badge,
+body.ui:has(#dashboard-view.active) .terminal-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-ink-soft);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: 11px;
+  background: var(--color-canvas);
+  padding: 2px 7px;
+  border-radius: var(--radius-badges);
+  border: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  flex: 1;
+  margin-top: 8px;
+  border: 0;
+  overflow: visible;
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack button {
+  display: grid;
+  position: relative;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "num occupancy" "copy copy";
+  align-content: start;
+  gap: 4px 4px;
+  min-width: 0;
+  min-height: 54px;
+  margin: 0;
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack button::after {
+  content: '';
+  position: absolute;
+  left: 10px; right: 10px; bottom: 0;
+  height: 2px;
+  background: transparent;
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack button:hover {
+  background: var(--color-surface-alt);
+  border-color: var(--color-mid-gray);
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack button[aria-pressed=true] {
+  background: var(--color-canvas);
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+  box-shadow: 0 0 0 1px var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) #floors .section-stack button[aria-pressed=true]::after {
+  background: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .floor-number {
+  grid-area: num;
+  min-width: 0;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: 10px;
+}
+body.ui:has(#dashboard-view.active) .floor-thumb { display: none !important; }
+body.ui:has(#dashboard-view.active) .biome-occupancy .floor-count::after { content: none !important; }
+body.ui:has(#dashboard-view.active) .biome-copy { grid-area: copy; min-width: 0; }
+body.ui:has(#dashboard-view.active) .biome-copy > span {
+  display: block;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .biome-copy small {
+  display: block;
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--color-mid-gray);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .biome-occupancy {
+  grid-area: occupancy;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 0;
+  color: var(--color-ink-soft);
+}
+body.ui:has(#dashboard-view.active) .biome-occupancy strong {
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 11px;
+}
+body.ui:has(#dashboard-view.active) .biome-occupancy small {
+  color: var(--color-mid-gray);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+/* Secondary Ghost Button — #f5f5f5 fill, #0a0a0a text, 18px radius */
+body.ui:has(#dashboard-view.active) #floors .building-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+body.ui:has(#dashboard-view.active) #floors .building-button:hover,
+body.ui:has(#dashboard-view.active) #floors .building-button[aria-pressed=true] {
+  background: var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .campus-count {
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 11px;
+}
+
+/* Live Directory Panel */
+body.ui:has(#dashboard-view.active) #roster-telemetry {
+  grid-area: roster;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+body.ui:has(#dashboard-view.active) .panel-counter {
+  color: var(--color-ink-soft);
+  font-family: var(--font-geist);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  background: var(--color-canvas);
+  padding: 2px 7px;
+  border-radius: var(--radius-badges);
+  border: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .team-roster {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  margin-top: 8px;
+  overflow: auto;
+  scrollbar-color: var(--color-hairline) transparent;
+}
+body.ui:has(#dashboard-view.active) .roster-member {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 3px 6px;
+  text-align: left;
+  color: var(--color-ink);
+  border: 1px solid transparent;
+  border-radius: var(--radius-buttons);
+  background: transparent;
+  cursor: pointer;
+}
+body.ui:has(#dashboard-view.active) .roster-member:hover,
+body.ui:has(#dashboard-view.active) .roster-member.selected {
+  background: var(--color-canvas);
+  border-color: var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .roster-initials {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 10px;
+}
+body.ui:has(#dashboard-view.active) .roster-info { overflow: hidden; }
+body.ui:has(#dashboard-view.active) .roster-name {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-geist);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .roster-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  margin-top: 1px;
+}
+body.ui:has(#dashboard-view.active) .roster-division {
+  flex: none;
+  padding: 1px 4px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-small);
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-size: 9px;
+  font-weight: var(--font-weight-medium);
+}
+body.ui:has(#dashboard-view.active) .roster-role {
+  display: block;
+  overflow: hidden;
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .roster-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-size: 11px;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .roster-status i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-ink-soft);
+}
+
+/* Workspace Floor Plan Map Container */
+body.ui:has(#dashboard-view.active) #plan-area {
+  grid-area: map;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+body.ui:has(#dashboard-view.active) .plan-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-hairline);
+  overflow-x: auto;
+}
+body.ui:has(#dashboard-view.active) .plan-heading h2 {
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 18px;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  margin: 0;
+}
+body.ui:has(#dashboard-view.active) #planCount {
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .plan-filters {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+body.ui:has(#dashboard-view.active) .plan-filters label {
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  white-space: nowrap;
+}
+/* Input Fields / Select Controls — #f5f5f5 resting fill, 18px radius, focus outline */
+body.ui:has(#dashboard-view.active) .plan-filters select {
+  min-width: 0;
+  height: 30px;
+  padding: 3px 8px;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border: none;
+  border-radius: var(--radius-inputs);
+  font-family: var(--font-geist);
+  font-size: 12px;
+}
+body.ui:has(#dashboard-view.active) .plan-filters select:focus {
+  outline: none;
+  border: 1px solid var(--color-hairline);
+  background: var(--color-paper);
+}
+body.ui:has(#dashboard-view.active) #filter-status { min-width: 0; }
+body.ui:has(#dashboard-view.active) #floor-plan {
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-alt);
+}
+body.ui:has(#dashboard-view.active) #plan-legend {
+  gap: 8px 12px;
+  padding: 6px 14px;
+  color: var(--color-mid-gray);
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-hairline);
+  font-size: 11px;
+}
+body.ui:has(#dashboard-view.active) .plan-heading .mini-label {
+  color: var(--color-mid-gray);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caption);
+  margin: 0;
+}
+body.ui:has(#dashboard-view.active) .map-coordinate {
+  align-self: center;
+  color: var(--color-ink-soft);
+  font-family: var(--font-geist);
+  font-size: 11px;
+  white-space: nowrap;
+  background: var(--color-canvas);
+  padding: 3px 6px;
+  border-radius: var(--radius-badges);
+  border: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .map-zoom {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  height: 30px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-canvas);
+}
+body.ui:has(#dashboard-view.active) .map-zoom button {
+  width: 24px;
+  height: 30px;
+  color: var(--color-ink);
+  border: 0;
+  background: transparent;
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+body.ui:has(#dashboard-view.active) .map-zoom button:hover {
+  background: var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .map-zoom span {
+  min-width: 34px;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-size: 11px;
+  text-align: center;
+}
+body.ui:has(#dashboard-view.active) #plan-feedback {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border-color: var(--color-hairline);
+  box-shadow: var(--shadow-subtle);
+  border-radius: var(--radius-buttons);
+}
+
+/* Operations Overview / Studio Telemetry Panel */
+body.ui:has(#dashboard-view.active) #mission-telemetry {
+  grid-area: telemetry;
+  padding: 14px 16px;
+  overflow: hidden;
+}
+body.ui:has(#dashboard-view.active) .telemetry-orbit {
+  color: var(--color-mid-gray);
+  font-size: 15px;
+}
+
+/* Stat Blocks — Design Spec: White/alt fill, 24px/18px radius, tight uppercase label + big metric */
+body.ui:has(#dashboard-view.active) .telemetry-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+body.ui:has(#dashboard-view.active) .telemetry-kpi {
+  padding: 6px 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-surface-alt);
+}
+body.ui:has(#dashboard-view.active) .telemetry-kpi strong {
+  display: block;
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+body.ui:has(#dashboard-view.active) .telemetry-kpi span {
+  display: block;
+  margin-top: 1px;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caption);
+}
+body.ui:has(#dashboard-view.active) .agent-engine-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-surface-alt);
+}
+body.ui:has(#dashboard-view.active) .agent-engine-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: var(--radius-small);
+  background: var(--color-ink-soft);
+  color: var(--color-paper);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 10px;
+}
+body.ui:has(#dashboard-view.active) .agent-engine-row > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+body.ui:has(#dashboard-view.active) .agent-engine-row strong,
+body.ui:has(#dashboard-view.active) .agent-engine-row small { display: block; }
+body.ui:has(#dashboard-view.active) .agent-engine-row strong {
+  font-family: var(--font-geist);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .agent-engine-row small {
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--color-mid-gray);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.ui:has(#dashboard-view.active) .engine-status {
+  color: var(--color-paper);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-medium);
+  font-size: 10px;
+  background: var(--color-ink-soft);
+  padding: 2px 6px;
+  border-radius: var(--radius-badges);
+}
+body.ui:has(#dashboard-view.active) .telemetry-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--color-mid-gray);
+  font-family: var(--font-geist);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+body.ui:has(#dashboard-view.active) .telemetry-footer span:first-child {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Event Stream / Terminal Log Panel */
+body.ui:has(#dashboard-view.active) #log {
+  grid-area: activity;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body.ui:has(#dashboard-view.active) .log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .log-head h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+body.ui:has(#dashboard-view.active) .log-head .eyebrow { margin-bottom: 1px; }
+body.ui:has(#dashboard-view.active) .log-filter-bar {
+  display: flex;
+  gap: 5px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-hairline);
+  background: var(--color-surface-alt);
+}
+body.ui:has(#dashboard-view.active) .log-filter-bar button {
+  min-height: 24px;
+  padding: 3px 8px;
+  color: var(--color-mid-gray);
+  border: 1px solid transparent;
+  border-radius: var(--radius-buttons);
+  background: transparent;
+  font-family: var(--font-geist);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+body.ui:has(#dashboard-view.active) .log-filter-bar button.active {
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) .log-stats {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  padding: 6px 10px;
+}
+body.ui:has(#dashboard-view.active) .log-stats div {
+  padding: 5px 6px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-surface-alt);
+}
+body.ui:has(#dashboard-view.active) .log-stats strong {
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: 13px;
+}
+body.ui:has(#dashboard-view.active) .log-stats span {
+  color: var(--color-mid-gray);
+  font-size: 10px;
+}
+body.ui:has(#dashboard-view.active) #logEmpty { color: var(--color-mid-gray); }
+body.ui:has(#dashboard-view.active) #logList {
+  flex: 1;
+  padding: 0 10px 6px;
+  scrollbar-color: var(--color-hairline) transparent;
+}
+body.ui:has(#dashboard-view.active) #logList li {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: start;
+  padding: 6px 0;
+  border-color: var(--color-hairline);
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-size: 11px;
+}
+body.ui:has(#dashboard-view.active) #logList time {
+  color: var(--color-mid-gray);
+  font-size: 10px;
+}
+body.ui:has(#dashboard-view.active) .log-chip {
+  border: 1px solid var(--color-hairline);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  border-radius: var(--radius-badges);
+}
+body.ui:has(#dashboard-view.active) .timeline-focus {
+  min-height: 24px;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-paper);
+  font-family: var(--font-geist);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-buttons);
+  padding: 2px 6px;
+  cursor: pointer;
+}
+body.ui:has(#dashboard-view.active) .timeline-focus:hover {
+  background: var(--color-canvas);
+}
+
+/* Bottom Controls Deck Container */
+body.ui:has(#dashboard-view.active) #controls {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: var(--color-paper);
+}
+body.ui:has(#dashboard-view.active) .simulation-controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Secondary Ghost / Outline Controls Buttons — 18px radius pill controls */
+body.ui:has(#dashboard-view.active) #controls .btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  background: var(--color-canvas);
+  font-family: var(--font-geist);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+body.ui:has(#dashboard-view.active) #controls .btn:hover {
+  background: var(--color-hairline);
+  border-color: var(--color-mid-gray);
+}
+body.ui:has(#dashboard-view.active) #bPause[aria-pressed=true],
+body.ui:has(#dashboard-view.active) #bRoutine[aria-pressed=false] {
+  color: var(--color-paper);
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+}
+body.ui:has(#dashboard-view.active) #bLunch::before { content: '◷ '; color: var(--color-mid-gray); }
+body.ui:has(#dashboard-view.active) #bStandup::before { content: '◉ '; color: var(--color-mid-gray); }
+body.ui:has(#dashboard-view.active) #bFocus::before { content: '⌁ '; color: var(--color-mid-gray); }
+body.ui:has(#dashboard-view.active) #bRoof::before { content: '↗ '; color: var(--color-mid-gray); }
+body.ui:has(#dashboard-view.active) #bWork::before { content: '▦ '; color: var(--color-mid-gray); }
+
+/* Destructive Action Pill Rule (Ember #e7000b exclusive for destructive error/alerts) */
+.btn-destructive,
+.action-destructive {
+  color: var(--color-paper) !important;
+  background: var(--color-ember) !important;
+  border-color: var(--color-ember) !important;
+}
+
+body.ui:has(#dashboard-view.active) #cameraHint { display: none; }
+body.ui:has(#dashboard-view.active) #sceneStatus {
+  position: fixed;
+  top: 92px; right: 24px;
+  color: var(--color-mid-gray);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-badges);
+  box-shadow: var(--shadow-subtle);
+  padding: 4px 12px;
+}
+body.ui:has(#dashboard-view.active) #info {
+  position: fixed;
+  top: 112px; right: 330px; bottom: auto;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - 136px);
+  overflow: auto;
+  z-index: 5;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-subtle);
+  padding: 16px;
+}
+body.ui:has(#dashboard-view.active) #info h2 {
+  color: var(--color-ink);
+  font-family: var(--font-geist);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-subheading);
+}
+body.ui:has(#dashboard-view.active) .member-reassign {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-hairline);
+}
+body.ui:has(#dashboard-view.active) .member-reassign > label {
+  color: var(--color-mid-gray);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+}
+body.ui:has(#dashboard-view.active) .member-reassign-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+body.ui:has(#dashboard-view.active) .member-reassign-controls select,
+body.ui:has(#dashboard-view.active) .member-reassign-controls .btn {
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  color: var(--color-ink);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-buttons);
+  font-family: var(--font-geist);
+  font-size: 12px;
+}
+
+/* Responsive Layout Breakpoints */
+@media(max-width: 1160px) and (min-width: 901px) {
+  body.ui:has(#dashboard-view.active) #dashboard-view {
+    grid-template-columns: minmax(210px, 240px) minmax(320px, 1fr) minmax(235px, 260px);
+    gap: 8px;
+    padding: 8px;
+  }
+  body.ui:has(#dashboard-view.active) #header { gap: 10px; padding: 6px 10px; }
+  body.ui:has(#dashboard-view.active) .header-card { gap: 8px; }
+  body.ui:has(#dashboard-view.active) .studio-pulse small { display: none; }
+  body.ui:has(#dashboard-view.active) .header-metrics { gap: 8px; }
+  body.ui:has(#dashboard-view.active) .view-tab { padding: 5px 8px; }
+  body.ui:has(#dashboard-view.active) #mission-telemetry,
+  body.ui:has(#dashboard-view.active) #floors,
+  body.ui:has(#dashboard-view.active) #roster-telemetry { padding: 10px; }
+}
+
+@media(max-width: 900px) {
+  body.ui:has(#dashboard-view.active) { overflow-y: auto; overflow-x: hidden; }
+  body.ui:has(#dashboard-view.active) #dashboard-view {
+    position: relative;
+    inset: auto;
+    min-height: 100dvh;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(430px, 58dvh) auto auto auto;
+    grid-template-areas:
+      "header header"
+      "campus telemetry"
+      "map map"
+      "actions actions"
+      "roster roster"
+      "activity activity";
+    padding: 8px;
+    gap: 8px;
+  }
+  body.ui:has(#dashboard-view.active) #floors { min-height: 250px; }
+  body.ui:has(#dashboard-view.active) #mission-telemetry { min-height: 200px; }
+  body.ui:has(#dashboard-view.active) #roster-telemetry { max-height: 310px; min-height: 210px; }
+  body.ui:has(#dashboard-view.active) #log { min-height: 300px; max-height: 55dvh; }
+  body.ui:has(#dashboard-view.active) #controls { min-height: 44px; }
+}
+
+@media(max-width: 560px) {
+  body.ui:has(#dashboard-view.active) #dashboard-view {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(390px, 54dvh) auto auto minmax(280px, 44dvh);
+    grid-template-areas:
+      "header"
+      "campus"
+      "telemetry"
+      "map"
+      "actions"
+      "roster"
+      "activity";
+  }
+}

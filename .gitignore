@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build & Bundler outputs
+dist/
+dist-ssr/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Environment & Local Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing & Coverage
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
+
+# Operating System & IDE outputs
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.claude/
+.gemini/
+
+# Project runtime data
+data/
+
+assets/office/studioops.gif
+*.gif
