@@ -79,7 +79,7 @@ The 3D campus exploration view supports:
 
 ```bash
 git clone https://github.com/ARUNAGIRINATHAN-K/studio-ops-ai.git
-cd studioops-ai
+cd studio-ops-ai
 npm install
 ```
 
