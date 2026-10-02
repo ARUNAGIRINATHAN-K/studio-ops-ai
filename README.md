@@ -131,6 +131,14 @@ Start the production full-stack server:
 npm start
 ```
 
+### Run with Docker
+
+Start StudioOps using Docker Compose:
+
+```bash
+docker compose up -d
+```
+
 ---
 
 ## Project Structure
