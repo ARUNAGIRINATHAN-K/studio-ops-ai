@@ -1,0 +1,8 @@
+{
+  "name": "StudioOps",
+  "description": "Studio Operations Dashboard & Spatial Orchestration Engine with team telemetry, 4 campus biomes, and AI agent task management",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

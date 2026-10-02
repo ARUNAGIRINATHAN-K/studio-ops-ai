@@ -1,0 +1,203 @@
+/* StudioOps 3D Campus HUD & Inspector Styling */
+
+.campus-hud-left {
+  position: absolute;
+  left: 24px;
+  top: 84px;
+  width: 220px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 16px;
+  padding: 16px 14px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-brand-header {
+  margin-bottom: 8px;
+}
+
+.hud-brand-header .nav-title {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.hud-section-label {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #737373;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.hud-floor-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-btn.floor-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #171717;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.hud-btn.floor-btn:hover {
+  background: #f5f5f5;
+}
+
+.hud-btn.floor-btn.active {
+  background: #0a0a0a;
+  color: #ffffff;
+  border-color: #0a0a0a;
+}
+
+.floor-tag {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.hud-btn.floor-btn.active .floor-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.hud-layout-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: #f0f0f0;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.hud-tab {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #737373;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.hud-tab.active {
+  background: #ffffff;
+  color: #0a0a0a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Toolbar */
+.campus-hud-toolbar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 12px;
+  padding: 6px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: #e5e5e5;
+  margin: 0 4px;
+}
+
+/* Right Panel Inspector */
+.campus-inspector-panel {
+  position: absolute;
+  right: 24px;
+  top: 84px;
+  width: 280px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+.inspector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.inspector-title {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.close-inspector {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #737373;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.close-inspector:hover {
+  background: #f5f5f5;
+  color: #0a0a0a;
+}
+
+.inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inspector-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.inspector-metric span {
+  color: #737373;
+}
+
+.inspector-metric strong {
+  color: #0a0a0a;
+  font-weight: 600;
+}

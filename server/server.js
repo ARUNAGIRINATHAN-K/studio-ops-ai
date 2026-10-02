@@ -12,6 +12,7 @@ try { process.loadEnvFile(process.env.ENV_FILE || path.join(ROOT, '.env')); } ca
 const defaultAgents = require('./agents');
 let agents = structuredClone(defaultAgents);
 const PUBLIC = path.join(ROOT, 'public');
+const DIST = path.join(ROOT, 'dist');
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 const AGENT_CONFIG_FILE = path.join(DATA_DIR, 'agent-config.json');
@@ -255,9 +256,26 @@ async function api(req, res, url) {
 }
 const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon'};
 function serveFile(res, url) {
+  let reqPath;
+  try { reqPath = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname); } catch { return send(res, 400, {error: 'Bad path.'}); }
+  const distFile = path.join(DIST, reqPath);
+  const publicFile = path.join(PUBLIC, reqPath);
+
   let file;
-  try { file = path.join(PUBLIC, decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname)); } catch { return send(res, 400, {error: 'Bad path.'}); }
-  if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, {error: 'Forbidden.'});
+  if (fs.existsSync(DIST) && fs.existsSync(distFile) && fs.statSync(distFile).isFile()) {
+    if (!distFile.startsWith(DIST + path.sep) && distFile !== path.join(DIST, 'index.html')) return send(res, 403, {error: 'Forbidden.'});
+    file = distFile;
+  } else if (fs.existsSync(publicFile) && fs.statSync(publicFile).isFile()) {
+    if (!publicFile.startsWith(PUBLIC + path.sep)) return send(res, 403, {error: 'Forbidden.'});
+    file = publicFile;
+  } else if (fs.existsSync(path.join(DIST, 'index.html'))) {
+    file = path.join(DIST, 'index.html');
+  } else if (fs.existsSync(path.join(ROOT, 'index.html'))) {
+    file = path.join(ROOT, 'index.html');
+  } else {
+    file = path.join(PUBLIC, 'index.html');
+  }
+
   fs.readFile(file, (error, data) => {
     if (error) { res.writeHead(404, {'content-type': 'text/plain'}); return res.end('Not found'); }
     res.writeHead(200, {'content-type': TYPES[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache'}); res.end(data);
@@ -269,10 +287,28 @@ const server = http.createServer(async (req, res) => {
   try { await api(req, res, url); }
   catch (error) { send(res, error.status || 500, {error: error.status ? error.message : 'Server error.'}); if (!error.status) console.error(error); }
 });
-server.listen(PORT, HOST, () => {
-  console.log(`StudioOps: http://${HOST}:${PORT}`);
-  console.log(DRY_RUN ? 'AI agents: dry run (set ANTHROPIC_API_KEY in .env to use Claude)' : `AI agents: ${Object.entries(agents).map(([name, a]) => `${name} → ${modelOf(a)}`).join(', ')}`);
-  // Tasks left active by a previous run go back to the queue and are picked up again.
-  let reset = false; tasks.forEach(task => { if (task.status === 'active' && agents[task.assignee]) { task.status = 'queued'; reset = true; } }); if (reset) save();
+
+function initWorker() {
+  let reset = false;
+  tasks.forEach(task => { if (task.status === 'active' && agents[task.assignee]) { task.status = 'queued'; reset = true; } });
+  if (reset) save();
   kick();
-});
+}
+
+if (require.main === module) {
+  server.listen(PORT, HOST, () => {
+    console.log(`StudioOps / Kantor Kita: http://${HOST}:${PORT}`);
+    console.log(DRY_RUN ? 'AI agents: dry run (set ANTHROPIC_API_KEY in .env to use Claude)' : `AI agents: ${Object.entries(agents).map(([name, a]) => `${name} → ${modelOf(a)}`).join(', ')}`);
+    initWorker();
+  });
+}
+
+module.exports = {
+  api,
+  kick,
+  server,
+  agents,
+  modelOf,
+  initWorker
+};
+

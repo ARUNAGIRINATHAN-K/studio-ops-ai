@@ -59,6 +59,8 @@
   const floors = {}, materials = new Map(), agents = [];
   let root, activeFloor = 3, selected = null, paused = false, simTime = 0;
   let routineOn = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let layoutMode = 'OPEN_PLAN';
+  const floorOriginalGroups = {}, floorOpenPlanGroups = {}, telemetryScreens = [];
   const linear = color => new THREE.Color(color).convertSRGBToLinear();
   const hex = color => '#' + color.toString(16).padStart(6, '0');
   const mix = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), t).getHex();
@@ -67,6 +69,8 @@
   const FLOOR_GAP=4.4, floorY=level=>(level-1)*FLOOR_GAP;
   const stairways={}, travelRoot=new THREE.Group();scene.add(travelRoot);
 
+  const WALNUT = 0x4a2f20, DARK_WOOD = 0x241914, CHAIR = 0x111111, MARBLE = 0xd8d5ce, GREENERY = 0x3f6b45, SCREEN_ACTIVE = 0x3b6f9e, CEDAR = 0xd4a373, WATER = 0x2b556b, WALL_WHITE = 0xf7f7f5, METAL = 0x2c2c2c, CHROME = 0xd0d5dd;
+
   // Paper-model rendering: three flat tone steps plus ink edges on every folded card.
   const toneSteps = new THREE.DataTexture(new Uint8Array([165, 215, 255]), 3, 1, THREE.LuminanceFormat);
   toneSteps.minFilter = toneSteps.magFilter = THREE.NearestFilter; toneSteps.generateMipmaps = false; toneSteps.needsUpdate = true;
@@ -74,6 +78,359 @@
   const glassMaterial = new THREE.MeshToonMaterial({color:linear(0xc4dadb), gradientMap:toneSteps, transparent:true, opacity:.3, depthWrite:false});
   // Roof glass is clearer than wall glass so the rooftop stays readable from above.
   const roofGlassMaterial = new THREE.MeshToonMaterial({color:linear(0xd6e6e8), gradientMap:toneSteps, transparent:true, opacity:.13, depthWrite:false});
+
+  const marbleCanvas = document.createElement('canvas'); marbleCanvas.width = 512; marbleCanvas.height = 512;
+  const mCtx = marbleCanvas.getContext('2d');
+  mCtx.fillStyle = '#dbd7d0'; mCtx.fillRect(0,0,512,512);
+  mCtx.strokeStyle = 'rgba(120,115,105,0.16)'; mCtx.lineWidth = 2;
+  for(let x=0;x<=512;x+=128){ mCtx.beginPath(); mCtx.moveTo(x,0); mCtx.lineTo(x,512); mCtx.stroke(); }
+  for(let y=0;y<=512;y+=128){ mCtx.beginPath(); mCtx.moveTo(0,y); mCtx.lineTo(512,y); mCtx.stroke(); }
+  const marbleTexture = new THREE.CanvasTexture(marbleCanvas);
+  marbleTexture.wrapS = marbleTexture.wrapT = THREE.RepeatWrapping;
+  marbleTexture.repeat.set(8,6);
+  materials.set(MARBLE, new THREE.MeshStandardMaterial({color:linear(MARBLE), map:marbleTexture, roughness:0.28, metalness:0.08}));
+
+  const walnutCanvas = document.createElement('canvas'); walnutCanvas.width = 256; walnutCanvas.height = 256;
+  const wCtx = walnutCanvas.getContext('2d');
+  wCtx.fillStyle = '#4a2f20'; wCtx.fillRect(0,0,256,256);
+  for(let y=0;y<256;y+=3){ wCtx.fillStyle = Math.random()>0.5?'rgba(90,60,42,0.15)':'rgba(50,30,20,0.15)'; wCtx.fillRect(0,y,256,2); }
+  const walnutTexture = new THREE.CanvasTexture(walnutCanvas);
+  walnutTexture.wrapS = walnutTexture.wrapT = THREE.RepeatWrapping;
+  walnutTexture.repeat.set(2,2);
+  materials.set(WALNUT, new THREE.MeshStandardMaterial({color:linear(WALNUT), map:walnutTexture, roughness:0.42, metalness:0.04}));
+
+  materials.set(CHAIR, new THREE.MeshStandardMaterial({color:linear(CHAIR), roughness:0.65, metalness:0.12}));
+  materials.set(SCREEN_ACTIVE, new THREE.MeshStandardMaterial({color:linear(0x101828), emissive:linear(0x3b6f9e), emissiveIntensity:0.65, roughness:0.25, metalness:0.1}));
+  materials.set(WALL_WHITE, new THREE.MeshStandardMaterial({color:linear(WALL_WHITE), roughness:0.88, metalness:0.02}));
+  materials.set(CEDAR, new THREE.MeshStandardMaterial({color:linear(CEDAR), roughness:0.65, metalness:0.02}));
+  materials.set(WATER, new THREE.MeshStandardMaterial({color:linear(WATER), roughness:0.15, metalness:0.3, transparent:true, opacity:0.82}));
+  materials.set(METAL, new THREE.MeshStandardMaterial({color:linear(METAL), roughness:0.38, metalness:0.72}));
+  materials.set(CHROME, new THREE.MeshStandardMaterial({color:linear(CHROME), roughness:0.18, metalness:0.92}));
+  const ACOUSTIC_FELT = 0x334155;
+  materials.set(ACOUSTIC_FELT, new THREE.MeshStandardMaterial({color:linear(ACOUSTIC_FELT), roughness:0.92, metalness:0.01}));
+
+  const partitionRegistry = [];
+  function registerPartition({ id, type, removable, floor, position, size, material: matName, mesh }) {
+    const meta = { id, type, removable, floor, position, size, material: matName };
+    partitionRegistry.push(meta);
+    if (mesh) {
+      mesh.userData = { ...meta, inspectable: true };
+    }
+    return meta;
+  }
+
+  function setLayoutMode(mode) {
+    layoutMode = mode;
+    for (let level = 1; level <= 4; level++) {
+      if (floorOriginalGroups[level]) floorOriginalGroups[level].visible = (mode === 'ORIGINAL');
+      if (floorOpenPlanGroups[level]) floorOpenPlanGroups[level].visible = (mode === 'OPEN_PLAN');
+    }
+    const origBtn = $('hud-mode-orig');
+    const openBtn = $('hud-mode-open');
+    if (origBtn) origBtn.classList.toggle('active', mode === 'ORIGINAL');
+    if (openBtn) openBtn.classList.toggle('active', mode === 'OPEN_PLAN');
+    const toggleBtn = $('btn-toggle-layout');
+    if (toggleBtn) {
+      toggleBtn.textContent = mode === 'OPEN_PLAN' ? '⮂ Original Layout' : '⮂ Open Plan Layout';
+    }
+  }
+
+  function showObjectInspector(data) {
+    const inspector = $('object-inspector');
+    if (!inspector || !data) return;
+    inspector.hidden = false;
+    let html = '';
+    if (data.type === 'AVATAR' || data.isAvatar) {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Team Member</p><h3 class="inspector-title">${data.name}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Role</span><strong>${data.role || 'Team Member'}</strong></div>
+          <div class="inspector-metric"><span>Division</span><strong style="text-transform: capitalize;">${data.group || data.department || 'Studio'}</strong></div>
+          <div class="inspector-metric"><span>Elevation</span><strong>Level 0${data.floor || activeFloor}</strong></div>
+          <div class="inspector-metric"><span>Status</span><strong style="color: #10b981;">Active on Campus</strong></div>
+        </div>`;
+    } else if (data.type === 'WORKSTATION' || data.type === 'WORKSTATION_ISLAND') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Workspace Island</p><h3 class="inspector-title">${data.name || data.id || 'Open-Plan Benching Island'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Division / Cluster</span><strong style="text-transform: capitalize;">${data.department || 'Studio Workstation'}</strong></div>
+          <div class="inspector-metric"><span>Capacity</span><strong>${data.capacity || 8} Ergonomic Seats · Dual 4K</strong></div>
+          <div class="inspector-metric"><span>Materials &amp; Finish</span><strong>${data.material || 'American Walnut &amp; Matte Charcoal Steel'}</strong></div>
+          <div class="inspector-metric"><span>Telemetry &amp; Spine</span><strong style="color: #10b981;">10 Gbps Active · Integrated Power</strong></div>
+        </div>`;
+    } else if (data.type === 'GLASS_PARTITION' || data.type === 'PARTITION') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Architectural Element</p><h3 class="inspector-title">${data.name || data.id || 'Glass Partition Suite'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Classification</span><strong>${data.type}</strong></div>
+          <div class="inspector-metric"><span>Glazing Spec</span><strong>${data.material || 'Low-Iron Tempered Glass · Dark Charcoal Frame'}</strong></div>
+          <div class="inspector-metric"><span>Acoustic Attenuation</span><strong>STC 42 Acoustic Glazing · Soft Tint</strong></div>
+          <div class="inspector-metric"><span>Layout Status</span><strong style="color: ${data.removable ? '#38bdf8' : '#eab308'};">${data.removable ? 'Open-Plan Demountable' : 'Structural Permanent'}</strong></div>
+        </div>`;
+    } else if (data.type === 'CONFERENCE' || data.type === 'MEETING_ROOM') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Collaboration Suite</p><h3 class="inspector-title">${data.name || 'Glass Conference Suite'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Facility Type</span><strong>Executive Meeting &amp; Video Forum</strong></div>
+          <div class="inspector-metric"><span>Capacity</span><strong>8-10 Attendees · Oval Walnut Table</strong></div>
+          <div class="inspector-metric"><span>Display Spec</span><strong style="color: #38bdf8;">75" 4K Presentation AV Wall</strong></div>
+          <div class="inspector-metric"><span>Acoustics</span><strong>Double Glazed · Soundproof Perimeter</strong></div>
+        </div>`;
+    } else if (data.type === 'PHONE_BOOTH') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Focus Amenity</p><h3 class="inspector-title">${data.name || 'Acoustic Phone Booth'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Purpose</span><strong>Private Calls &amp; Confidential Sprints</strong></div>
+          <div class="inspector-metric"><span>Interior Acoustic</span><strong>Recycled PET Charcoal Acoustic Felt</strong></div>
+          <div class="inspector-metric"><span>Amenities</span><strong>Ventilation · Wireless Charging · Task Lamp</strong></div>
+        </div>`;
+    } else if (data.type === 'PANTRY' || data.type === 'LOUNGE') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Hospitality &amp; Refreshment</p><h3 class="inspector-title">${data.name || 'Moss Pantry &amp; Cafe Bar'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Amenity</span><strong>Espresso Bar &amp; Living Moss Wall</strong></div>
+          <div class="inspector-metric"><span>Countertop Spec</span><strong>Calacatta Light Stone &amp; Walnut Cabinetry</strong></div>
+          <div class="inspector-metric"><span>Equipment</span><strong>Dual-Boiler Commercial Espresso Machine</strong></div>
+        </div>`;
+    } else if (data.type === 'TERRARIUM' || data.type === 'GREENERY') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Biophilic Architecture</p><h3 class="inspector-title">${data.name || 'Living Terrarium &amp; Flora'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Plant Varieties</span><strong>Monstera, Ficus, Snake Plants &amp; Moss</strong></div>
+          <div class="inspector-metric"><span>Environmental Impact</span><strong>Air Quality Enhancement &amp; Biophilic Wellness</strong></div>
+          <div class="inspector-metric"><span>Irrigation</span><strong style="color: #10b981;">Automated Sub-surface Hydroponic</strong></div>
+        </div>`;
+    } else if (data.type === 'AMPHITHEATER') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Campus Presentation Hub</p><h3 class="inspector-title">${data.name || 'Sunken Cedar Amphitheater'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Design Concept</span><strong>Sunken Tiered Cedar Risers &amp; Presentation Stage</strong></div>
+          <div class="inspector-metric"><span>Seating Capacity</span><strong>${data.capacity || '28-32 Attendees · Full Team Standups'}</strong></div>
+          <div class="inspector-metric"><span>Material Specification</span><strong>${data.material || 'Western Red Cedar, LED Inset Strips &amp; Walnut Stage'}</strong></div>
+          <div class="inspector-metric"><span>AV Telemetry</span><strong style="color: #38bdf8;">Integrated 120" Presentation Display &amp; Sound</strong></div>
+        </div>`;
+    } else if (data.type === 'KOI_POND') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Biophilic Water Sanctuary</p><h3 class="inspector-title">${data.name || 'Reflective Koi Pond &amp; Stepping Stones'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Water Feature</span><strong>Natural Granite Basin &amp; Floating Slate Pathway</strong></div>
+          <div class="inspector-metric"><span>Stepping Stones</span><strong>5 Floating Natural Slate Stepping Stones</strong></div>
+          <div class="inspector-metric"><span>Aquatic Ecology</span><strong>Nymphaea Water Lilies &amp; Nishikigoi Habitat</strong></div>
+          <div class="inspector-metric"><span>Filtration &amp; Lighting</span><strong style="color: #10b981;">Submerged Bio-filtration &amp; Soft Perimeter Lanterns</strong></div>
+        </div>`;
+    } else if (data.type === 'RECREATION') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Campus Wellness &amp; Recreation</p><h3 class="inspector-title">${data.name || 'Recreation Amenity'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Activity</span><strong>Team Social, Coordination &amp; Rest Sprints</strong></div>
+          <div class="inspector-metric"><span>Specification</span><strong>${data.material || 'Architectural Specification · Competition Grade'}</strong></div>
+          <div class="inspector-metric"><span>Location</span><strong>Level 04 · Rooftop Garden &amp; Solarium Terrace</strong></div>
+        </div>`;
+    } else if (data.type === 'TELEMETRY_SCREEN') {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Real-Time Telemetry Display</p><h3 class="inspector-title">${data.name || 'MicroLED Telemetry Wall'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Display Hardware</span><strong>5.5m Seamless Ultra-wide MicroLED Panel</strong></div>
+          <div class="inspector-metric"><span>Data Stream</span><strong>Autonomous Agent Orchestration &amp; System Health</strong></div>
+          <div class="inspector-metric"><span>Refresh Rate</span><strong style="color: #38bdf8;">120 Hz Live Telemetry Stream</strong></div>
+        </div>`;
+    } else {
+      html = `
+        <div class="inspector-header">
+          <div><p class="mini-label">Campus Facility</p><h3 class="inspector-title">${data.name || data.id || 'Open-Plan Feature'}</h3></div>
+          <button type="button" class="btn close-inspector" aria-label="Close inspector">✕</button>
+        </div>
+        <div class="inspector-body">
+          <div class="inspector-metric"><span>Zone / Biome</span><strong>${FLOOR[activeFloor]?.name || 'Campus Level ' + activeFloor}</strong></div>
+          <div class="inspector-metric"><span>Design Standard</span><strong>Modern Open-Plan Architectural Spec</strong></div>
+          <div class="inspector-metric"><span>Material Tone</span><strong>Walnut · White Walls · Light Stone · Charcoal Glass</strong></div>
+        </div>`;
+    }
+    inspector.innerHTML = html;
+    inspector.querySelector('.close-inspector')?.addEventListener('click', () => { hideObjectInspector(); });
+  }
+
+  let objectSelectionBox = null;
+  function highlightObject(object) {
+    if (!object) {
+      removeSelectionHighlight();
+      return;
+    }
+    if (!objectSelectionBox) {
+      objectSelectionBox = new THREE.BoxHelper(object, 0x38bdf8);
+      objectSelectionBox.material.depthTest = false;
+      objectSelectionBox.material.transparent = true;
+      objectSelectionBox.material.opacity = 0.85;
+      scene.add(objectSelectionBox);
+    } else {
+      objectSelectionBox.setFromObject(object);
+      objectSelectionBox.visible = true;
+    }
+  }
+  function removeSelectionHighlight() {
+    if (objectSelectionBox) objectSelectionBox.visible = false;
+  }
+  function hideObjectInspector() {
+    const inspector = $('object-inspector');
+    if (inspector) inspector.hidden = true;
+    removeSelectionHighlight();
+  }
+
+  function createErgonomicChair(x, z, f, color=CHAIR, parent=root, name='Ergonomic Mesh Task Chair') {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = f > 0 ? 0 : Math.PI; parent.add(g);
+    cylinder(.04, .04, .38, CHROME, 0, .05, 0, g);
+    for (let i = 0; i < 5; i++) {
+      const a = (i * Math.PI * 2) / 5;
+      const spoke = box(.04, .03, .32, METAL, Math.sin(a) * .16, .06, Math.cos(a) * .16, g);
+      spoke.rotation.y = a;
+      const wheel = cylinder(.03, .03, .02, CHAIR, Math.sin(a) * .32, .03, Math.cos(a) * .32, g);
+      wheel.rotation.z = Math.PI / 2;
+    }
+    cylinder(.035, .035, .25, CHROME, 0, .22, 0, g);
+    mesh(softBox(.65, .08, .62), CHAIR, 0, .46, 0, g, false);
+    const backMesh = mesh(softBox(.58, .68, .08), CHAIR, 0, .82, -.28, g, false);
+    backMesh.rotation.x = -.08;
+    box(.32, .12, .05, METAL, 0, .68, -.31, g);
+    box(.06, .45, .05, METAL, 0, .62, -.32, g);
+    for (const s of [-1, 1]) {
+      box(.04, .25, .04, METAL, s * .32, .56, -.02, g);
+      box(.07, .03, .24, CHAIR, s * .32, .68, -.02, g);
+    }
+    g.userData = { type: 'CHAIR', name, material: 'Black Mesh & Chrome 5-Star Caster Base', inspectable: true };
+    return g;
+  }
+
+  function createDualMonitorSetup(x, z, f, parent=root, dual=true, title='Workstation') {
+    const g = new THREE.Group(); g.position.set(x, .92, z); g.rotation.y = f > 0 ? 0 : Math.PI; parent.add(g);
+    cylinder(.04, .04, .06, METAL, 0, .03, -.22, g);
+    box(.04, .32, .04, METAL, 0, .19, -.22, g);
+    for (const s of (dual ? [-1, 1] : [0])) {
+      const arm = box(.24, .03, .03, METAL, s * .16, .34, -.15, g);
+      arm.rotation.y = s * .2;
+      const monX = s * .44;
+      box(.03, .03, .05, METAL, monX, .34, -.06, g);
+      const bezel = box(.72, .44, .025, CHAIR, monX, .36, 0, g);
+      bezel.rotation.y = -s * .12;
+      const scr = mesh(new THREE.PlaneGeometry(.70, .42), SCREEN_ACTIVE, monX, .36, .014, g, false);
+      scr.rotation.y = -s * .12;
+    }
+    box(.48, .015, .02, METAL, 0, .58, 0, g);
+    box(.44, .018, .16, METAL, 0, .01, .24, g);
+    box(.42, .01, .14, 0x334155, 0, .024, .24, g);
+    box(.78, .004, .34, 0x1e293b, 0, .002, .24, g);
+    cylinder(.03, .03, .02, CHAIR, .32, .015, .24, g);
+    const lapX = -.52;
+    box(.32, .01, .22, 0xd0d5dd, lapX, .005, .18, g);
+    const lapScreen = box(.32, .22, .01, 0xd0d5dd, lapX, .11, .07, g);
+    lapScreen.rotation.x = -.25;
+    const lapDisp = mesh(new THREE.PlaneGeometry(.30, .20), SCREEN_ACTIVE, lapX, .11, .076, g, false);
+    lapDisp.rotation.x = -.25;
+    cylinder(.04, .035, .09, 0xf1f5f9, .44, .045, .12, g);
+    g.userData = { type: 'WORKSTATION', name: title, material: 'Dual 27" 4K IPS Displays, Mechanical Keyboard & MacBook Pro', inspectable: true };
+    return g;
+  }
+
+  function createGlassPartitionWall(w, h, x, y, z, rotation=0, hasDoor=false, parent=root, id='glass-wall') {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotation; parent.add(g);
+    box(w, .06, .06, METAL, 0, h - .03, 0, g);
+    box(w, .06, .06, METAL, 0, .03, 0, g);
+    box(.06, h, .06, METAL, -w/2 + .03, h/2, 0, g);
+    box(.06, h, .06, METAL, w/2 - .03, h/2, 0, g);
+    const panes = Math.max(1, Math.round(w / 1.8));
+    const paneW = (w - .06) / panes;
+    for (let i = 1; i < panes; i++) {
+      box(.05, h - .12, .05, METAL, -w/2 + .03 + i * paneW, h/2, 0, g);
+    }
+    const glassW = hasDoor ? w - 1.1 : w - .12;
+    const glassX = hasDoor ? -.55 : 0;
+    mesh(new THREE.BoxGeometry(glassW, h - .12, .015), 'glass', glassX, h/2, 0, g, false);
+    box(glassW, .10, .018, 0xe2e8f0, glassX, 1.4, 0, g);
+    if (hasDoor) {
+      const doorX = w/2 - .55;
+      box(.05, h - .12, .05, METAL, doorX - .5, h/2, 0, g);
+      box(.98, h - .16, .02, 'glass', doorX, h/2, 0, g);
+      box(.03, .6, .08, METAL, doorX + .42, 1.05, 0, g);
+    }
+    const meta = registerPartition({
+      id,
+      type: 'GLASS_PARTITION',
+      removable: true,
+      floor: activeFloor,
+      position: [x, y, z],
+      size: [w, h, 0.06],
+      material: 'Low-Iron Acoustic Glass with Matte Charcoal Frames',
+      mesh: g
+    });
+    g.userData = { ...meta, name: `Acoustic Glass Partition (${w.toFixed(1)}m)`, inspectable: true };
+    return g;
+  }
+
+  function createBiophilicPlanter(x, z, type='monstera', scale=1, y=0, parent=root) {
+    const g = new THREE.Group(); g.position.set(x, y, z); g.scale.set(scale, scale, scale); parent.add(g);
+    cylinder(.36, .30, .58, 0xe2e8f0, 0, 0, 0, g);
+    cylinder(.34, .34, .04, 0x3d352e, 0, .55, 0, g);
+    if (type === 'sansevieria') {
+      for (let i = 0; i < 9; i++) {
+        const a = (i * Math.PI * 2) / 9;
+        const rad = .08 + (i % 3) * .06;
+        const leafH = .75 + (i % 4) * .18;
+        const leaf = box(.08, leafH, .015, i % 2 ? 0x2e5c38 : 0x3f6b45, Math.sin(a) * rad, .55, Math.cos(a) * rad, g);
+        leaf.rotation.y = a;
+        leaf.rotation.x = Math.sin(a) * .08;
+      }
+    } else if (type === 'ficus') {
+      cylinder(.035, .045, .85, 0x5a4332, 0, .55, 0, g);
+      for (let i = 0; i < 8; i++) {
+        const a = i * 2.3;
+        const leafY = .9 + i * .12;
+        const leaf = oval(.36, .58, .12, i % 2 ? 0x2d5a36 : 0x3f6b45, Math.sin(a) * .22, leafY, Math.cos(a) * .22, g);
+        leaf.rotation.set(.35, a, Math.sin(a) * .5);
+      }
+    } else {
+      for (let i = 0; i < 7; i++) {
+        const a = i * 2.4;
+        box(.025, .7, .025, 0x4a6b3d, Math.sin(a) * .1, .55, Math.cos(a) * .1, g);
+        const leaf = oval(.42, .65, .08, i % 2 ? 0x36633d : 0x44754c, Math.sin(a) * .35, .95 + i * .08, Math.cos(a) * .35, g);
+        leaf.rotation.set(.4, a, Math.sin(a) * .6);
+      }
+    }
+    g.userData = { type: 'GREENERY', name: type === 'sansevieria' ? 'Sansevieria Architectural Planter' : type === 'ficus' ? 'Ficus Lyrata Fig Tree' : 'Monstera Deliciosa Living Planter', material: 'Living Biophilic Plant & Matte Ceramic Pot', inspectable: true };
+    return g;
+  }
+
   function material(color) {
     if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({color:linear(color), roughness:.78, metalness:0}));
     return materials.get(color);
@@ -167,309 +524,584 @@
   const facing = spot => spot.angle ?? (spot.f>0?0:Math.PI);
   const seat = (x,z,f,floor,aisle,extra={}) => ({x,z,f,floor,route:[[aisle,passage(floor)],[aisle,z]],...extra});
   function shell(level) {
-    root=new THREE.Group();floors[level]=root;scene.add(root);
-    box(33,.48,25,0xd3cbba,0,-.48,0);
-    box(32,.03,24,{1:0xdcd6ca,2:0xefe8da,3:0xf1ece1,4:0xddd3bf}[level],0,0,0);
-    if(level!==3){
-      box(32,level===4?.85:2.4,.22,CARD,0,0,-12);
-      if(level!==4)for(const x of [-12,-4,4,12])box(5.5,1.35,.05,SCREEN,x,.82,-11.86);
+    root = new THREE.Group();
+    floors[level] = root;
+    scene.add(root);
+
+    const origGroup = new THREE.Group();
+    origGroup.name = 'orig-' + level;
+    root.add(origGroup);
+    floorOriginalGroups[level] = origGroup;
+
+    const openGroup = new THREE.Group();
+    openGroup.name = 'open-' + level;
+    root.add(openGroup);
+    floorOpenPlanGroups[level] = openGroup;
+
+    origGroup.visible = (layoutMode === 'ORIGINAL');
+    openGroup.visible = (layoutMode === 'OPEN_PLAN');
+
+    box(33, .48, 25, 0xd3cbba, 0, -.48, 0);
+    box(32, .03, 24, {1:0xdcd6ca, 2:0xefe8da, 3:0xf1ece1, 4:0xddd3bf}[level], 0, 0, 0);
+
+    // Marble tile floor overlay for levels 1-3
+    if (level <= 3) {
+      const tileSlab = new THREE.Mesh(new THREE.PlaneGeometry(32, 24), materials.get(MARBLE));
+      tileSlab.rotation.x = -Math.PI / 2;
+      tileSlab.position.set(0, 0.016, 0);
+      tileSlab.receiveShadow = true;
+      root.add(tileSlab);
     }
-    box(.22,level===4?.85:1.1,17.5,CARD,-16,0,-3.25);
-    box(.22,level===4?.85:1.1,3.5,CARD,-16,0,10.25);
-    box(.22,level===4?.85:1.1,24,CARD,16,0,0);
+
+    if (level !== 3) {
+      box(32, level === 4 ? .85 : 2.4, .22, CARD, 0, 0, -12);
+      if (level !== 4) for (const x of [-12, -4, 4, 12]) box(5.5, 1.35, .05, SCREEN, x, .82, -11.86);
+    }
+    box(.22, level === 4 ? .85 : 1.1, 17.5, CARD, -16, 0, -3.25);
+    box(.22, level === 4 ? .85 : 1.1, 3.5, CARD, -16, 0, 10.25);
+    box(.22, level === 4 ? .85 : 1.1, 24, CARD, 16, 0, 0);
+
+    // Structural perimeter columns
+    for (const sx of [-15.8, -7.9, 0, 7.9, 15.8]) {
+      for (const sz of [-11.8, 11.8]) {
+        box(.4, level === 4 ? 1.2 : 3.5, .4, WALL_WHITE, sx, 0, sz);
+      }
+    }
+
     // Floor 1 leaves the parking half of the front open for cars.
-    if(level===1)box(16,.28,.22,CARD,-8,0,12);else box(32,.28,.22,CARD,0,0,12);
-    if(level===2||level===3){
-      for(let row=0;row<24;row++)for(let col=0;col<4;col++){
-        box(7.98,.003,.985,[0xe2cdb0,0xddc5a5,0xe8d5b9][(row+col)%3],-12+col*8,.032,-11.5+row);
+    if (level === 1) box(16, .28, .22, CARD, -8, 0, 12); else box(32, .28, .22, CARD, 0, 0, 12);
+    if (level === 2 || level === 3) {
+      for (let row = 0; row < 24; row++) for (let col = 0; col < 4; col++) {
+        box(7.98, .003, .985, [0xe2cdb0, 0xddc5a5, 0xe8d5b9][(row + col) % 3], -12 + col * 8, .032, -11.5 + row);
       }
     }
     stairs(level);
   }
 
   shell(1);
-  box(.16,2.4,15,CARD,-2,0,-4.3);
-  box(13,.02,23,0xe8e1d3,-9.3,.02,0);
-  for(const x of [-11,-6]){
-    box(2.5,1.8,.08,DARK,x,.55,-10.9);box(2.28,1.58,.02,SCREEN,x,.66,-10.84);
-    box(2.7,.12,.7,BALSA,x,.9,-10.3);
-    cylinder(.48,.55,.16,0x8a8479,x,0,-8);cylinder(.09,.09,.55,0xa9a397,x,.16,-8);
-    box(1.15,.2,1.2,DARK,x,.6,-8);box(1.15,1,.2,DARK,x,.7,-7.5);
-    for(const s of [-1,1])box(.14,.25,1,0x8a8479,x+s*.66,.8,-8);
-    box(.85,.12,.6,0xa9a397,x,.23,-9);
+  // Original enclosed partition wall & prototype workshop (ORIGINAL mode)
+  box(.16, 2.4, 15, CARD, -2, 0, -4.3, floorOriginalGroups[1]);
+  box(13, .02, 23, 0xe8e1d3, -9.3, .02, 0, floorOriginalGroups[1]);
+  for (const x of [-11, -6]) {
+    box(2.5, 1.8, .08, DARK, x, .55, -10.9, floorOriginalGroups[1]);
+    box(2.28, 1.58, .02, SCREEN, x, .66, -10.84, floorOriginalGroups[1]);
+    box(2.7, .12, .7, BALSA, x, .9, -10.3, floorOriginalGroups[1]);
+    cylinder(.48, .55, .16, 0x8a8479, x, 0, -8, floorOriginalGroups[1]);
+    cylinder(.09, .09, .55, 0xa9a397, x, .16, -8, floorOriginalGroups[1]);
+    box(1.15, .2, 1.2, DARK, x, .6, -8, floorOriginalGroups[1]);
+    box(1.15, 1, .2, DARK, x, .7, -7.5, floorOriginalGroups[1]);
+    for (const s of [-1, 1]) box(.14, .25, 1, 0x8a8479, x + s * .66, .8, -8, floorOriginalGroups[1]);
+    box(.85, .12, .6, 0xa9a397, x, .23, -9, floorOriginalGroups[1]);
   }
-  sofa(-7,7,4);table(-7,9,2,.9);plant(-3.5,10.7);
-  // Cashier counter near the barber exit.
-  box(2.6,1,.8,BALSA,-13.5,0,2.5);box(2.7,.06,.9,CARD,-13.5,1,2.5);box(.5,.35,.4,DARK,-13.1,1.06,2.4);box(.4,.04,.3,0x8a8479,-13.9,1.06,2.6);
-  textPlane('CASHIER',-13.5,4.6,3.2);
-  cylinder(.16,.16,2,CARD,-3,0,-10.5);
-  for(let i=0;i<8;i++)cylinder(.17,.17,.13,i%2?CARD:0xb4523a,-3,.2+i*.21,-10.5);
-  textPlane('BARBER',-8,-3,7);textPlane('PARKING',7,8.7,8);
-  for(const x of [2,7,12]){
-    box(.07,.02,8,CARD,x-2.3,.03,-5);box(4.6,.02,.07,CARD,x,.03,-9);
+  sofa(-7, 7, 4); table(-7, 9, 2, .9); plant(-3.5, 10.7);
+  box(2.6, 1, .8, BALSA, -13.5, 0, 2.5, floorOriginalGroups[1]);
+  box(2.7, .06, .9, CARD, -13.5, 1, 2.5, floorOriginalGroups[1]);
+  box(.5, .35, .4, DARK, -13.1, 1.06, 2.4, floorOriginalGroups[1]);
+  box(.4, .04, .3, 0x8a8479, -13.9, 1.06, 2.6, floorOriginalGroups[1]);
+  textPlane('CASHIER', -13.5, 4.6, 3.2, undefined, floorOriginalGroups[1]);
+  cylinder(.16, .16, 2, CARD, -3, 0, -10.5, floorOriginalGroups[1]);
+  for (let i = 0; i < 8; i++) cylinder(.17, .17, .13, i % 2 ? CARD : 0xb4523a, -3, .2 + i * .21, -10.5, floorOriginalGroups[1]);
+  textPlane('BARBER', -8, -3, 7, undefined, floorOriginalGroups[1]);
+  textPlane('PARKING', 7, 8.7, 8, undefined, floorOriginalGroups[1]);
+  for (const x of [2, 7, 12]) {
+    box(.07, .02, 8, CARD, x - 2.3, .03, -5, floorOriginalGroups[1]);
+    box(4.6, .02, .07, CARD, x, .03, -9, floorOriginalGroups[1]);
   }
-  function car(x,z,color) {
-    box(2.4,.65,4.7,color,x,.45,z);box(2.05,.65,2.5,color,x,1.1,z-.2);
-    box(1.88,.5,.03,SCREEN,x,1.18,z+1.07);box(1.88,.5,.03,SCREEN,x,1.18,z-1.47);
-    for(const sx of [-1,1])for(const sz of [-1,1]){const w=cylinder(.43,.43,.2,DARK,x+sx*1.22,.2,z+sz*1.4);w.rotation.z=Math.PI/2;}
-    for(const sx of [-1,1])box(.5,.2,.05,0xfff1c9,x+sx*.7,.72,z+2.38);
+  function car(x, z, color) {
+    box(2.4, .65, 4.7, color, x, .45, z, floorOriginalGroups[1]);
+    box(2.05, .65, 2.5, color, x, 1.1, z - .2, floorOriginalGroups[1]);
+    box(1.88, .5, .03, SCREEN, x, 1.18, z + 1.07, floorOriginalGroups[1]);
+    box(1.88, .5, .03, SCREEN, x, 1.18, z - 1.47, floorOriginalGroups[1]);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const w = cylinder(.43, .43, .2, DARK, x + sx * 1.22, .2, z + sz * 1.4, floorOriginalGroups[1]);
+      w.rotation.z = Math.PI / 2;
+    }
+    for (const sx of [-1, 1]) box(.5, .2, .05, 0xfff1c9, x + sx * .7, .72, z + 2.38, floorOriginalGroups[1]);
   }
-  car(2,-5,0xd6d0c4);car(12,-5,0x6f8580);
-  for(const x of [3,6,9]){
-    for(const z of [2.8,4.2]){const w=cylinder(.3,.3,.16,DARK,x,.12,z);w.rotation.z=Math.PI/2;}
-    box(.45,.4,1.3,0x8a5a3c,x,.42,3.5);box(.48,.12,.8,DARK,x,.85,3.6);box(.8,.06,.08,DARK,x,1.05,2.8);
+  car(2, -5, 0xd6d0c4); car(12, -5, 0x6f8580);
+  for (const x of [3, 6, 9]) {
+    for (const z of [2.8, 4.2]) {
+      const w = cylinder(.3, .3, .16, DARK, x, .12, z, floorOriginalGroups[1]);
+      w.rotation.z = Math.PI / 2;
+    }
+    box(.45, .4, 1.3, 0x8a5a3c, x, .42, 3.5, floorOriginalGroups[1]);
+    box(.48, .12, .8, DARK, x, .85, 3.6, floorOriginalGroups[1]);
+    box(.8, .06, .08, DARK, x, 1.05, 2.8, floorOriginalGroups[1]);
   }
-  textPlane('ENTRANCE',7,11,4);
-  restroom(-14.5,10.6,2.7,2.5,'-z');
 
-  // Floor 2: back counter, an island on a terracotta rug, one long table, a coffee bar and a reading corner.
+  // Modern Open-Plan Focus Greenhouse Elements (OPEN_PLAN mode)
+  // 1. Central Living Moss & Stone Terrarium Lounge at (0, 0)
+  cylinder(2.6, 2.7, .36, WALL_WHITE, 0, 0, 0, floorOpenPlanGroups[1]);
+  cylinder(2.52, 2.52, .38, GREENERY, 0, 0, 0, floorOpenPlanGroups[1]);
+  cylinder(2.9, 2.9, .10, WALNUT, 0, .42, 0, floorOpenPlanGroups[1]);
+  for (let i = 0; i < 5; i++) {
+    const a = (i * Math.PI * 2) / 5;
+    const boulder = mesh(new THREE.DodecahedronGeometry(.4 + (i % 2) * .15), METAL, Math.sin(a) * 1.2, .5, Math.cos(a) * 1.2, floorOpenPlanGroups[1], false);
+    boulder.scale.set(1.2, .7, 1);
+  }
+  createBiophilicPlanter(0, 0, 'ficus', 1.4, .45, floorOpenPlanGroups[1]);
+  textPlane('FOCUS GREENHOUSE', 0, -3.8, 6.5, '#4a6b5d', floorOpenPlanGroups[1]);
+
+  // 2. Acoustic Bamboo Focus Pods at X = -8, Z = -4
+  for (const [px, pz] of [[-8, -4], [-8, 4]]) {
+    const pod = new THREE.Group(); pod.position.set(px, 0, pz); floorOpenPlanGroups[1].add(pod);
+    cylinder(1.7, 1.7, .03, ACOUSTIC_FELT, 0, .01, 0, pod);
+    for (let i = 0; i < 16; i++) {
+      const a = (i * Math.PI * 1.5) / 16;
+      box(.08, 2.2, .04, WALNUT, Math.sin(a) * 1.6, 0, Math.cos(a) * 1.6, pod);
+    }
+    mesh(softBox(1.5, .08, .75), WALNUT, 0, .75, 0, pod, false);
+    createDualMonitorSetup(0, .05, 1, pod, false, 'Focus Pod Workstation');
+    createErgonomicChair(0, .7, -1, CHAIR, pod, 'Focus Pod Ergonomic Chair');
+    pod.userData = { type: 'PHONE_BOOTH', name: 'Acoustic Bamboo Focus Pod', material: 'Natural Cedar Slats & Sound-Absorbing Felt', inspectable: true };
+  }
+
+  // 3. Collaboration & Lounge Zone at X = 8, Z = -4
+  mesh(softBox(3.2, .38, 1.6), WALNUT, 8, 0, -4, floorOpenPlanGroups[1], false);
+  sofa(8, -6, 3.8);
+  for (const [x, z, r] of [[6.2, -4, Math.PI / 2], [9.8, -4, -Math.PI / 2]]) {
+    const armchair = new THREE.Group(); armchair.position.set(x, 0, z); armchair.rotation.y = r; floorOpenPlanGroups[1].add(armchair);
+    mesh(softBox(.9, .42, .85), ACOUSTIC_FELT, 0, .22, 0, armchair, false);
+    mesh(softBox(.9, .68, .2), ACOUSTIC_FELT, 0, .55, -.35, armchair, false);
+    armchair.userData = { type: 'LOUNGE', name: 'Upholstered Lounge Chair', material: 'Charcoal Acoustic Felt & Walnut Base', inspectable: true };
+  }
+
+  // 4. Perimeter window planter troughs along North and South glazing
+  for (const z of [-11.5, 11.5]) {
+    for (const x of [-12, -4, 4, 12]) {
+      box(6.8, .45, .65, WALNUT, x, 0, z, floorOpenPlanGroups[1]);
+      cylinder(3.3, 3.3, .04, 0x3d352e, x, .42, z, floorOpenPlanGroups[1]);
+      for (let k = -2.4; k <= 2.4; k += 1.2) {
+        createBiophilicPlanter(x + k, z, (k % 2 === 0) ? 'sansevieria' : 'monstera', .85, .45, floorOpenPlanGroups[1]);
+      }
+    }
+  }
+
+  textPlane('ENTRANCE', 7, 11, 4);
+  restroom(-14.5, 10.6, 2.7, 2.5, '-z');
+
+  // Floor 2: AI Synthesis Oasis (ZN.02)
   shell(2);
-  const TERRACOTTA=0xc98f72, SAGE=0xb3c0a0, SAGE_DARK=0x7f9a82, RUST=0xc27a52;
-  function stool(x,z,h=.75) {
-    for(const a of [.8,2.4,4,5.5])box(.05,h,.05,DARK,x+Math.cos(a)*.2,0,z+Math.sin(a)*.2);
-    cylinder(.26,.26,.04,DARK,x,h*.35,z);
-    mesh(softBox(.56,.12,.56),CARD,x,h+.06,z,root,false);
+  const TERRACOTTA = 0xc98f72, SAGE = 0xb3c0a0, SAGE_DARK = 0x7f9a82, RUST = 0xc27a52;
+  function stool(x, z, h = .75) {
+    for (const a of [.8, 2.4, 4, 5.5]) box(.05, h, .05, DARK, x + Math.cos(a) * .2, 0, z + Math.sin(a) * .2);
+    cylinder(.26, .26, .04, DARK, x, h * .35, z);
+    mesh(softBox(.56, .12, .56), CARD, x, h + .06, z, root, false);
   }
-  function diningChair(x,z,f,color) {
-    for(const sx of [-1,1])for(const sz of [-1,1])box(.05,.5,.05,DARK,x+sx*.3,0,z+sz*.3);
-    mesh(softBox(.75,.12,.72),color,x,.56,z,root,false);
-    mesh(softBox(.75,.62,.14),color,x,.92,z-f*.33,root,false);
+  function diningChair(x, z, f, color) {
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(.05, .5, .05, DARK, x + sx * .3, 0, z + sz * .3);
+    mesh(softBox(.75, .12, .72), color, x, .56, z, root, false);
+    mesh(softBox(.75, .62, .14), color, x, .92, z - f * .33, root, false);
   }
-  // Floor 2 has no ceiling to hang from, so light stands on the floor.
-  function floorLamp(x,z) {
-    cylinder(.28,.3,.05,DARK,x,0,z);box(.04,1.9,.04,DARK,x,.05,z);
-    cylinder(.18,.32,.36,SAGE_DARK,x,1.85,z);oval(.16,.16,.16,0xfff4d6,x,1.9,z);
+  function floorLamp(x, z) {
+    cylinder(.28, .3, .05, DARK, x, 0, z); box(.04, 1.9, .04, DARK, x, .05, z);
+    cylinder(.18, .32, .36, SAGE_DARK, x, 1.85, z); oval(.16, .16, .16, 0xfff4d6, x, 1.9, z);
   }
-  // Back counter with open shelves along the window wall.
-  box(24,.95,1.8,0xcdb28a,1,0,-10.5);box(24,.1,1.9,CARD,1,.95,-10.5);
-  for(const x of [-9,-6,-3,0,3,6,9,12])box(.03,.85,.03,0x8c7965,x,.05,-9.58);
-  box(2,.04,1.3,0x8a8479,-5,1.05,-10.5);box(1.55,.05,.96,0xc9d3d1,-5,1.08,-10.5);
-  cylinder(.045,.045,.5,0xa9a397,-5,1.1,-11);
-  box(2.3,.05,1.3,DARK,3,1.05,-10.5);
-  for(const x of [2.5,3.5])for(const z of [-10.8,-10.2])cylinder(.23,.23,.04,0x8a8479,x,1.1,z);
-  box(1.8,2.5,1.8,0xd9d9d0,13.6,0,-10.4);box(1.55,.035,.03,DARK,13.6,1.65,-9.48);
-  box(1,.6,.8,DARK,-9,1.05,-10.5);cylinder(.12,.12,.2,CARD,-9,1.05,-9.9);
-  for(const x of [-7,5])box(7,.07,.5,BALSA,x,1.95,-11.6);
-  for(let i=0;i<7;i++){
-    cylinder(.14,.14,.3,i%3?CARD:SAGE,-9.8+i*.55,2.02,-11.6);
-    cylinder(.14,.14,.26,i%2?0xa9a397:CARD,3.2+i*.5,2.02,-11.6);
-  }
-  plant(-4.4,-11.6,.45,2.02);plant(7.8,-11.6,.45,2.02);
-  // Island: stone top on a slatted balsa base, stools on the dining side.
-  box(9.4,.02,4.6,TERRACOTTA,-3,.035,-5.4);
-  box(8,.95,1.5,BALSA,-3,0,-5.6);
-  for(let i=0;i<21;i++)box(.05,.9,.03,0xc9a577,-6.8+i*.38,.03,-4.84);
-  mesh(softBox(8.4,.12,1.9),0xf1ede4,-3,1.01,-5.6,root,false);
-  box(1.2,.03,.8,0x8a8479,-5.2,1.08,-5.8);cylinder(.035,.035,.45,0xa9a397,-5.2,1.1,-6.1);
-  cylinder(.35,.25,.16,BALSA,-1.8,1.08,-5.7);for(let i=0;i<4;i++)oval(.2,.2,.2,0xd99a4e,-1.9+(i%2)*.18,1.24+(i>>1)*.08,-5.7+(i%3)*.1-.1);
-  plant(1,-5.8,.35,1.08);
-  for(const x of [-6,-4.5,-3,-1.5,0])stool(x,-3.9);
-  // Coffee bar in the back-right corner.
-  box(5,.02,6.4,SAGE,11.6,.035,-5);
-  box(1,1,3,BALSA,15.3,0,-5);box(1.1,.06,3.1,CARD,15.3,1,-5);
-  box(.7,.55,.55,DARK,15.3,1.06,-5.6);box(.5,.12,.12,0x8a8479,15,1.3,-5.6);
-  for(let i=0;i<5;i++)cylinder(.1,.08,.14,CARD,15.2,1.06,-4.8+i*.25);
-  box(.9,1,.06,DARK,15.8,1.6,-3.4);
-  cylinder(.25,.4,1.02,DARK,11.8,0,-5);
-  mesh(softBox(1.2,.1,4.8),0xf1ede4,11.8,1.08,-5,root,false);
-  for(const z of [-6.6,-5,-3.4])stool(10.7,z,1);
-  cylinder(.07,.07,.24,0xc4dadb,11.9,1.13,-4.2);plant(12,-6.6,.3,1.13);
-  // One long table on a sage rug seats the whole team.
-  box(15,.02,5.6,SAGE,-1,.035,5);
-  const dining=[];
-  table(-1,5,12.4,2.2);
-  for(let i=0;i<7;i++)for(const side of [-1,1]){
-    const x=-6.1+i*1.7,z=5+side*1.75;
-    diningChair(x,z,-side,side<0?CARD:0xd9cdb6);
-    cylinder(.23,.23,.02,CARD,x,.99,5+side*.6);cylinder(.08,.08,.18,0xc4dadb,x+.45,.99,5+side*.6);
-    dining.push(seat(x,z,-side,2,x<-1?-8.8:7));
-  }
-  plant(-1,5,.4,.99);cylinder(.3,.22,.12,BALSA,1.6,.99,5);for(let i=0;i<3;i++)oval(.2,.2,.2,0x9bb06b,1.5+i*.12,1.12,5);
-  floorLamp(-9.4,9.2);floorLamp(9.4,8.8);
-  // Reading corner: round rug, two armchairs and a pinned board.
-  cylinder(3,3,.02,0xd8cfc0,11.6,.03,6.4);
-  for(const [x,z,r] of [[10.2,5.4,.7],[12.8,7.9,-2.3]]){
-    const g=new THREE.Group();root.add(g);g.position.set(x,0,z);g.rotation.y=r;
-    mesh(softBox(1.1,.45,1),RUST,0,.35,0,g,false);mesh(softBox(1.1,.75,.25),RUST,0,.75,-.42,g,false);
-    for(const s of [-1,1])mesh(softBox(.22,.55,.9),mix(RUST,INK,.1),s*.5,.45,-.02,g,false);
-    for(const s of [-1,1])for(const t of [-1,1])box(.05,.14,.05,DARK,s*.4,0,t*.35,g);
-  }
-  cylinder(.55,.55,.06,BALSA,11.6,.5,6.6);cylinder(.06,.1,.5,DARK,11.6,0,6.6);box(.4,.03,.3,DARK,11.5,.56,6.5);
-  const board=new THREE.Group();root.add(board);board.position.set(14.2,0,4.4);board.rotation.y=-.9;
-  box(2.2,1.4,.06,CARD,0,.9,0,board);for(const s of [-1,1])box(.06,2.3,.06,DARK,s*1.05,0,0,board);
-  for(let i=0;i<5;i++)box(.34,.3,.02,[0xf0d27a,0xe8b8a0,0xc9d9c6][i%3],-.7+(i%3)*.6,1.6-(i>>1)*.5-(i%2)*.1,.05,board);
-  plant(-12.2,-8.4);plant(15,-1.2,.8);restroom(-14.4,-10.55,2.9,2.6,'+z');plant(-14.3,10.4,.9);plant(15,10.5,.8);plant(7.2,10.6,.7);
-  textPlane('SHARED KITCHEN',-3,-1.9,7);textPlane('COFFEE BAR',11.8,-.9,5);textPlane('DINING',-1,9.5,7);
 
-  // Floor 3: one open room, layered by rugs, a board partition, a low shelf, glass rooms and hanging lamps.
+  // Original dining counter and long table (ORIGINAL mode)
+  box(24, .95, 1.8, 0xcdb28a, 1, 0, -10.5, floorOriginalGroups[2]);
+  box(24, .1, 1.9, CARD, 1, .95, -10.5, floorOriginalGroups[2]);
+  for (const x of [-9, -6, -3, 0, 3, 6, 9, 12]) box(.03, .85, .03, 0x8c7965, x, .05, -9.58, floorOriginalGroups[2]);
+  box(2, .04, 1.3, 0x8a8479, -5, 1.05, -10.5, floorOriginalGroups[2]);
+  box(1.55, .05, .96, 0xc9d3d1, -5, 1.08, -10.5, floorOriginalGroups[2]);
+  cylinder(.045, .045, .5, 0xa9a397, -5, 1.1, -11, floorOriginalGroups[2]);
+  box(9.4, .02, 4.6, TERRACOTTA, -3, .035, -5.4, floorOriginalGroups[2]);
+  box(8, .95, 1.5, BALSA, -3, 0, -5.6, floorOriginalGroups[2]);
+  box(15, .02, 5.6, SAGE, -1, .035, 5, floorOriginalGroups[2]);
+  const dining = [];
+  table(-1, 5, 12.4, 2.2);
+  for (let i = 0; i < 7; i++) for (const side of [-1, 1]) {
+    const x = -6.1 + i * 1.7, z = 5 + side * 1.75;
+    diningChair(x, z, -side, side < 0 ? CARD : 0xd9cdb6);
+    cylinder(.23, .23, .02, CARD, x, .99, 5 + side * .6);
+    cylinder(.08, .08, .18, 0xc4dadb, x + .45, .99, 5 + side * .6);
+    dining.push(seat(x, z, -side, 2, x < -1 ? -8.8 : 7));
+  }
+
+  // Modern Open-Plan AI Synthesis Oasis Elements (OPEN_PLAN mode)
+  // 1. Three 8-Person Developer Workstation Islands (A, B, C) along Z = 5.5
+  const islands = [
+    { id: 'Island-A', x: -8, z: 5.5, label: 'ISLAND A · AI AGENT RUNTIME' },
+    { id: 'Island-B', x: 0, z: 5.5, label: 'ISLAND B · NEURAL SYNTHESIS' },
+    { id: 'Island-C', x: 8, z: 5.5, label: 'ISLAND C · DATA PIPELINES' }
+  ];
+  for (const is of islands) {
+    const isGroup = new THREE.Group(); isGroup.position.set(is.x, 0, is.z); floorOpenPlanGroups[2].add(isGroup);
+    mesh(softBox(5.6, .12, 2.2), WALNUT, 0, .88, 0, isGroup, false);
+    for (const sx of [-2.6, 0, 2.6]) for (const sz of [-1.0, 1.0]) box(.08, .86, .08, METAL, sx, 0, sz, isGroup);
+    box(5.4, .42, .04, ACOUSTIC_FELT, 0, .94, 0, isGroup);
+    box(5.4, .08, .22, METAL, 0, .78, 0, isGroup);
+    for (let c = 0; c < 4; c++) {
+      const sx = -2.1 + c * 1.4;
+      for (const side of [-1, 1]) {
+        createDualMonitorSetup(sx, side * .65, -side, isGroup, true, `${is.id} Seat ${c + 1}`);
+        createErgonomicChair(sx, side * 1.55, -side, CHAIR, isGroup, `${is.id} Ergonomic Chair`);
+      }
+    }
+    isGroup.userData = { type: 'WORKSTATION_ISLAND', name: is.label, capacity: 8, material: 'American Walnut, Dual 4K Displays & Acoustic Felt', inspectable: true };
+  }
+
+  // 2. Tatami Tea Pavilion at X = -6.0, Z = -2.0
+  const tatami = new THREE.Group(); tatami.position.set(-6, 0, -2); floorOpenPlanGroups[2].add(tatami);
+  mesh(softBox(5.6, .24, 4.4), CEDAR, 0, .12, 0, tatami, false);
+  for (let col = 0; col < 3; col++) {
+    for (let row = 0; row < 2; row++) {
+      mesh(softBox(1.76, .02, 2.05), 0xd5cca8, -1.8 + col * 1.8, .25, -1.05 + row * 2.1, tatami, false);
+      box(1.78, .022, .06, CHAIR, -1.8 + col * 1.8, .25, -2.08 + row * 2.1, tatami);
+    }
+  }
+  mesh(softBox(2.2, .08, 1.1), WALNUT, 0, .42, 0, tatami, false);
+  for (const sx of [-.9, .9]) for (const sz of [-.45, .45]) cylinder(.04, .05, .38, WALNUT, sx, .04, sz, tatami);
+  for (const sx of [-1.3, 0, 1.3]) for (const sz of [-.95, .95]) {
+    mesh(softBox(.55, .08, .55), ACOUSTIC_FELT, sx, .28, sz, tatami, false);
+  }
+  cylinder(.08, .07, .12, METAL, 0, .46, 0, tatami);
+  tatami.userData = { type: 'LOUNGE', name: 'Tatami Tea Pavilion', material: 'Traditional Igusa Tatami, Cedar Deck & Solid Walnut Table', inspectable: true };
+
+  // 3. Four Widescreen Active Telemetry Displays along North Wall (Z = -11.86m)
+  const teleTitles = ['AGENT WORKFLOW ORCHESTRATION', 'AUTONOMOUS SYNTHESIS LATENCY', 'KNOWLEDGE GRAPH REASONING', 'MULTI-AGENT CONSENSUS'];
+  const teleXs = [-12, -4, 4, 12];
+  for (let i = 0; i < 4; i++) {
+    const tele = new THREE.Group(); tele.position.set(teleXs[i], 1.6, -11.86); floorOpenPlanGroups[2].add(tele);
+    box(5.5, 1.35, .06, CHAIR, 0, 0, 0, tele);
+    mesh(new THREE.PlaneGeometry(5.4, 1.25), SCREEN_ACTIVE, 0, 0, .035, tele, false);
+    tele.userData = { type: 'TELEMETRY_SCREEN', name: teleTitles[i], material: '5.5m Ultra-wide MicroLED Telemetry Wall', inspectable: true };
+    telemetryScreens.push(tele);
+  }
+
+  // 4. Matcha & Coffee Bar along Eastern wall (X = 13.5, Z = -3)
+  const matchaBar = new THREE.Group(); matchaBar.position.set(13.5, 0, -3); floorOpenPlanGroups[2].add(matchaBar);
+  mesh(softBox(1.2, .95, 4.4), WALNUT, 0, .475, 0, matchaBar, false);
+  mesh(softBox(1.3, .08, 4.5), 0xf1ede4, 0, .99, 0, matchaBar, false);
+  for (let z = -1.6; z <= 1.6; z += 1.05) stool(12.2, -3 + z, .78);
+  createBiophilicPlanter(13.5, 0, 'ficus', 1.1, 1.05, matchaBar);
+  matchaBar.userData = { type: 'PANTRY', name: 'Matcha & Espresso Bar', material: 'Walnut Slatted Fascia, Quartz Countertop & Bar Stools', inspectable: true };
+
+  textPlane('AI SYNTHESIS OASIS', 0, -4.5, 7, '#3b6f9e', floorOpenPlanGroups[2]);
+  restroom(-14.4, -10.55, 2.9, 2.6, '+z');
+
+  // Floor 3: Core Solarium (ZN.03)
   shell(3);
-  const P3=passage(3);
-  box(6.2,3.5,.22,CARD,-12.9,0,-12);
-  box(25.8,.9,.22,CARD,3.1,0,-12);box(25.8,.45,.22,CARD,3.1,3.05,-12);
-  for(let i=0;i<=6;i++)box(.2,2.15,.22,CARD,-9.8+i*25.8/6,.9,-12);
-  box(25.8,2.15,.04,'glass',3.1,.9,-12.03);
-  for(const z of [-3.5,6.5]){for(const x of [-15.8,15.8])box(.4,3.5,.4,CARD,x,0,z);box(31.6,.22,.3,CARD,0,3.28,z);}
-  const desks={};
-  for(const [key,group] of Object.entries(GROUPS)){
-    const people=TEAM.filter(p=>p.group===key),cols=2,full=people.length>2;
-    // Each team sits on its own soft-coloured rug: sage, terracotta, lilac, slate.
-    mesh(softBox(8.6,.04,full?6.6:4.4),{leadership:0xb7c3cf,marketing:0xe0b8a6,engineering:0xb9c8a6,service:0xcdbfdc}[key],group.x,.02,group.z+(full?0:.9),root,false);
-    table(group.x,group.z,6.4,full?2.3:1.7);
-    textPlane(group.name.toUpperCase(),group.x,group.z>0?10.35:.35,8);
-    people.forEach((person,index)=>{
-      const side=people.length===2?1:(index<cols?-1:1),f=-side;
-      const x=group.x+(index%cols===0?-1.65:1.65),z=group.z+side*2.05;
-      chair(x,z,f,group.color);screen(x,group.z+side*.38,f,key==='engineering');
-      const notebook=mesh(softBox(.35,.04,.45),0xe6dbc4,x-.8,.99,group.z+side*.65,root,false);notebook.rotation.y=.12;
-      plant(x+.95,group.z+side*.1,.24,.97);
-      desks[person.n]=seat(x,z,f,3,group.x<0?-10.5:key==='marketing'?9:10);
+  const P3 = passage(3);
+  box(6.2, 3.5, .22, CARD, -12.9, 0, -12);
+  box(25.8, .9, .22, CARD, 3.1, 0, -12); box(25.8, .45, .22, CARD, 3.1, 3.05, -12);
+  for (let i = 0; i <= 6; i++) box(.2, 2.15, .22, CARD, -9.8 + i * 25.8 / 6, .9, -12);
+  box(25.8, 2.15, .04, 'glass', 3.1, .9, -12.03);
+  for (const z of [-3.5, 6.5]) {
+    for (const x of [-15.8, 15.8]) box(.4, 3.5, .4, CARD, x, 0, z);
+    box(31.6, .22, .3, CARD, 0, 3.28, z);
+  }
+
+  // Register all 13 team members' desk coordinates
+  const desks = {};
+  for (const [key, group] of Object.entries(GROUPS)) {
+    const people = TEAM.filter(p => p.group === key), cols = 2, full = people.length > 2;
+    people.forEach((person, index) => {
+      const side = people.length === 2 ? 1 : (index < cols ? -1 : 1), f = -side;
+      const x = group.x + (index % cols === 0 ? -1.65 : 1.65), z = group.z + side * 2.05;
+      desks[person.n] = seat(x, z, f, 3, group.x < 0 ? -10.5 : key === 'marketing' ? 9 : 10);
     });
-    // Pendants hang from the ceiling beam above each team table.
-    for(const dx of [-1.6,1.6]){box(.03,.88,.03,DARK,group.x+dx,2.4,group.z);cylinder(.07,.34,.3,0x5f7d68,group.x+dx,2.12,group.z);oval(.16,.16,.16,0xfff1cf,group.x+dx,2.1,group.z);}
   }
-  // Task board between Leadership and Marketing, readable from both sides. It lists the real open tasks.
-  // It faces the front of the room so the default camera can read it.
-  box(2.8,1.5,.1,CARD,0,.55,-3.5);
-  for(const x of [-1.2,1.2])box(.08,.55,.08,DARK,x,0,-3.5);
-  const boardCanvas=document.createElement('canvas');boardCanvas.width=1024;boardCanvas.height=528;
-  const boardTexture=new THREE.CanvasTexture(boardCanvas);boardTexture.encoding=THREE.sRGBEncoding;boardTexture.anisotropy=4;
-  for(const side of [-1,1]){
-    const face=new THREE.Mesh(new THREE.PlaneGeometry(2.7,1.39),new THREE.MeshBasicMaterial({map:boardTexture}));
-    face.position.set(0,1.3,-3.5+side*.056);face.rotation.y=side>0?0:Math.PI;root.add(face);
+
+  // Original Floor 3 furniture (ORIGINAL mode fallback)
+  for (const [key, group] of Object.entries(GROUPS)) {
+    const people = TEAM.filter(p => p.group === key), cols = 2, full = people.length > 2;
+    mesh(softBox(8.6, .04, full ? 6.6 : 4.4), {leadership:0xb7c3cf, marketing:0xe0b8a6, engineering:0xb9c8a6, service:0xcdbfdc}[key], group.x, .02, group.z + (full ? 0 : .9), floorOriginalGroups[3], false);
+    table(group.x, group.z, 6.4, full ? 2.3 : 1.7);
+    people.forEach((person, index) => {
+      const side = people.length === 2 ? 1 : (index < cols ? -1 : 1), f = -side;
+      const x = group.x + (index % cols === 0 ? -1.65 : 1.65), z = group.z + side * 2.05;
+      chair(x, z, f, group.color);
+      screen(x, group.z + side * .38, f, key === 'engineering');
+    });
   }
-  // Low shelf between Engineering and Customer Service keeps the room open while giving it a back and front.
-  box(.6,1.15,5.2,BALSA,0,0,6.8);
-  for(const y of [.38,.76])box(.62,.03,5.22,0xb89c70,0,y,6.8);
-  for(let i=0;i<10;i++)box(.4,.26+(i%3)*.04,.1+(i%2)*.06,[0x2f4a6b,CARD,0xb4623a,0x3f7a58,0x74598c][i%5],0,.42,4.6+i*.44);
-  plant(0,5.2,.55,1.15);plant(0,8.4,.55,1.15);
-  // Glass meeting room, back left.
-  box(5.9,.02,5.3,0xe6ded0,-12.9,.02,-9.25);
-  box(4.1,2.4,.05,'glass',-13.95,0,-6.5);box(.7,2.4,.05,'glass',-10.15,0,-6.5);box(.05,2.4,5.5,'glass',-9.8,0,-9.25);
-  for(const [x,z] of [[-11.9,-6.5],[-10.5,-6.5],[-9.8,-6.5],[-9.8,-11.9]])box(.1,2.45,.1,DARK,x,0,z);
-  box(6.2,.08,.1,DARK,-12.9,2.4,-6.5);box(.1,.08,5.5,DARK,-9.8,2.4,-9.25);
-  table(-13.2,-9,2.8,1.4);
-  box(2.2,1.1,.08,DARK,-13.2,1.1,-11.82);box(2,.95,.02,SCREEN,-13.2,1.17,-11.77);
-  textPlane('MEETING ROOM',-12.9,-5.8,4.6);
-  // Doors swing open on their own when someone comes within reach, then close again.
-  const doors=[];
-  function door(hx,hz,width,base,color){
-    // Doors swing out of the way, so the walking grid treats them as open.
-    const pivot=new THREE.Group();pivot.position.set(hx,0,hz);pivot.rotation.y=base;pivot.userData.walkable=true;root.add(pivot);
-    box(width-.04,2.2,.05,color,width/2,0,0,pivot);box(.04,.04,.2,DARK,width-.15,1.05,0,pivot);
-    const center=new THREE.Vector3(width/2,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),base).add(new THREE.Vector3(hx,0,hz));
-    doors.push({pivot,base,center,floor:3,open:0});
+  box(.6, 1.15, 5.2, BALSA, 0, 0, 6.8, floorOriginalGroups[3]);
+
+  // Modern Open-Plan Core Solarium Elements (OPEN_PLAN mode)
+  // 1. Unobstructed Central Walkway (Z = -1.25m to +1.25m) with recessed LED guides in marble
+  box(32, .006, .05, 0xffffff, 0, .022, -1.25, floorOpenPlanGroups[3]);
+  box(32, .006, .05, 0xffffff, 0, .022, 1.25, floorOpenPlanGroups[3]);
+  textPlane('CENTRAL WALKWAY · UNOBSTRUCTED AXIS', 0, 0, 10, '#94a3b8', floorOpenPlanGroups[3]);
+
+  // 2. Four Open-Plan Modular Walnut Benching Clusters
+  for (const [key, group] of Object.entries(GROUPS)) {
+    const people = TEAM.filter(p => p.group === key), cols = 2, full = people.length > 2;
+    const benchW = 6.6, benchD = full ? 2.4 : 1.8;
+    const benchGroup = new THREE.Group(); benchGroup.position.set(group.x, 0, group.z); floorOpenPlanGroups[3].add(benchGroup);
+
+    // Warm walnut desktop with chamfered edge profile
+    mesh(softBox(benchW, .12, benchD), WALNUT, 0, .88, 0, benchGroup, false);
+    // Dark metal structural frame
+    for (const sx of [-benchW/2 + .2, 0, benchW/2 - .2]) {
+      for (const sz of [-benchD/2 + .15, benchD/2 - .15]) {
+        box(.08, .86, .08, METAL, sx, 0, sz, benchGroup);
+      }
+    }
+    // Central acoustic felt divider screen
+    box(benchW - .3, .42, .04, ACOUSTIC_FELT, 0, .94, 0, benchGroup);
+
+    // Workstation setups with ergonomic mesh chairs, dual 4K displays on clamp arms, mechanical keyboards, laptops, mugs
+    people.forEach((person, index) => {
+      const side = people.length === 2 ? 1 : (index < cols ? -1 : 1), f = -side;
+      const x = group.x + (index % cols === 0 ? -1.65 : 1.65), z = group.z + side * 2.05;
+      createDualMonitorSetup(x, group.z + side * .48, f, floorOpenPlanGroups[3], true, `${person.n} (${person.role})`);
+      createErgonomicChair(x, z, f, CHAIR, floorOpenPlanGroups[3], `${person.n}'s Ergonomic Task Chair`);
+    });
+
+    benchGroup.userData = { type: 'WORKSTATION_ISLAND', name: `${group.name} Benching Island`, department: group.name, capacity: people.length, material: 'American Walnut, Matte Metal & Charcoal Acoustic Felt', inspectable: true };
+    textPlane(group.name.toUpperCase(), group.x, group.z > 0 ? 10.35 : .35, 7, '#475569', floorOpenPlanGroups[3]);
   }
-  door(-11.9,-6.5,1.4,0,'glass');
-  const hangouts=[];
-  for(const x of [-14.2,-13.2,-12.2])for(const [z,f] of [[-10.35,1],[-7.65,-1]]){
-    chair(x,z,f,0x8a7a66);
-    hangouts.push({x,z,f,floor:3,route:[[-11.2,P3],[-11.2,z]],state:'meet',label:'Heading to the meeting room',occupant:null});
+
+  // 3. Central Real-time Task Board at (0, -3.5)
+  box(2.8, 1.5, .1, CARD, 0, .55, -3.5);
+  for (const x of [-1.2, 1.2]) box(.08, .55, .08, DARK, x, 0, -3.5);
+  const boardCanvas = document.createElement('canvas'); boardCanvas.width = 1024; boardCanvas.height = 528;
+  const boardTexture = new THREE.CanvasTexture(boardCanvas); boardTexture.encoding = THREE.sRGBEncoding; boardTexture.anisotropy = 4;
+  for (const side of [-1, 1]) {
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 1.39), new THREE.MeshBasicMaterial({map:boardTexture}));
+    face.position.set(0, 1.3, -3.5 + side * .056); face.rotation.y = side > 0 ? 0 : Math.PI; root.add(face);
   }
-  // Two phone booths, front left.
-  for(const x of [-14.6,-12.4]){
-    box(1.9,.02,1.9,0xe6ded0,x,.02,10.5);
-    box(.05,2.3,1.9,'glass',x-.95,0,10.5);box(.05,2.3,1.9,'glass',x+.95,0,10.5);box(1.9,2.3,.05,'glass',x,0,11.45);
-    box(1.95,.08,.08,DARK,x,2.3,9.55);box(1.95,.08,.08,DARK,x,2.3,11.45);
-    for(const dx of [-.725,.725])box(.45,2.3,.05,'glass',x+dx,0,9.55);door(x-.5,9.55,1,0,'glass');
-    box(.08,.08,1.95,DARK,x-.95,2.3,10.5);box(.08,.08,1.95,DARK,x+.95,2.3,10.5);
-    box(1.6,1.1,.04,0x86968a,x,.9,11.38);box(.9,.05,.35,BALSA,x,.95,11.2);
-    cylinder(.24,.24,.48,DARK,x,0,10.7);
-    hangouts.push({x,z:10.6,f:-1,floor:3,route:[[-11,P3],[-11,8.8],[x,8.8]],state:'call',label:'Heading to a phone booth',occupant:null});
+
+  // 4. Acoustic Glass Meeting Room at X = -12.9, Z = -9.25
+  const confRoom = new THREE.Group(); confRoom.position.set(-12.9, 0, -9.25); floorOpenPlanGroups[3].add(confRoom);
+  createGlassPartitionWall(6.0, 2.4, -12.9, 0, -6.5, 0, true, floorOpenPlanGroups[3], 'L3-Conf-Front');
+  createGlassPartitionWall(5.5, 2.4, -9.8, 0, -9.25, Math.PI / 2, false, floorOpenPlanGroups[3], 'L3-Conf-Side');
+  mesh(softBox(3.6, .12, 1.5), WALNUT, 0, .88, 0, confRoom, false);
+  for (const sx of [-1.2, 1.2]) cylinder(.08, .08, .86, METAL, sx, 0, 0, confRoom);
+  for (let i = 0; i < 3; i++) {
+    const cx = -1.1 + i * 1.1;
+    createErgonomicChair(cx - 12.9, -10.3, 1, CHAIR, floorOpenPlanGroups[3], 'Executive Conference Chair');
+    createErgonomicChair(cx - 12.9, -8.2, -1, CHAIR, floorOpenPlanGroups[3], 'Executive Conference Chair');
   }
-  textPlane('PHONE BOOTH',-13.5,8.9,4.4);
-  // Pantry and lounge, back right.
-  box(4.6,.9,.8,0xcdb28a,11.8,0,-11.2);box(4.7,.06,.9,CARD,11.8,.9,-11.2);
-  box(.45,.55,.45,CARD,10.4,.96,-11.25);cylinder(.2,.2,.45,0xc4dadb,10.4,1.51,-11.25);
-  box(.5,.6,.42,DARK,13.2,.96,-11.3);for(const x of [12.1,12.4])cylinder(.08,.07,.16,CARD,x,.96,-11);
-  textPlane('PANTRY',11.8,-8.9,3.6);
-  // Pantry and lounge share one glass room with its door on the aisle.
-  box(.05,2.4,7.8,'glass',9.6,0,-8.1);box(5.2,2.4,.05,'glass',13.4,0,-4.2);
-  for(const [x,z] of [[9.6,-4.2],[10.8,-4.2],[9.6,-11.9]])box(.1,2.45,.1,DARK,x,0,z);
-  box(.1,.08,7.8,DARK,9.6,2.4,-8.1);box(6.4,.08,.1,DARK,12.8,2.4,-4.2);
-  door(9.6,-4.2,1.2,0,'glass');
-  box(3.2,.02,4,0xe3d9c6,14.2,.02,-7.5);
-  sofa(15,-7.5,3.4,-Math.PI/2);box(.8,.4,1,BALSA,13.1,0,-7.5);
-  cylinder(.2,.25,.05,DARK,15.3,0,-4.9);box(.04,1.6,.04,DARK,15.3,.05,-4.9);cylinder(.12,.3,.3,CARD,15.3,1.6,-4.9);
-  textPlane('LOUNGE',13.6,-5.3,3.6);
-  for(const x of [10.6,12.6])hangouts.push({x,z:-10.2,f:-1,floor:3,route:[[10,P3],[10,-10.2]],state:'drink',label:'Heading to the pantry',occupant:null});
-  for(const z of [-8.3,-6.7])hangouts.push({x:14.75,z,f:-1,angle:-Math.PI/2,floor:3,route:[[10,P3],[10,z]],state:'lounge',label:'Heading to the lounge',occupant:null});
-  // One reader in front of the task board, one behind it (reached around the board's right edge).
-  hangouts.push({x:0,z:-2.5,f:-1,angle:Math.PI,floor:3,route:[[0,P3]],state:'look',label:'Heading to the task board',occupant:null});
-  hangouts.push({x:0,z:-4.5,f:1,angle:0,floor:3,route:[[1.95,P3],[1.95,-4.5]],state:'look',label:'Heading to the task board',occupant:null});
-  // Musholla, front right: low partitions, a door on the aisle side, two rows of prayer mats.
-  box(5.3,.02,3.3,0xdfe3d6,13.3,.02,10.15);
-  box(.12,1.1,1.1,CARD,10.6,0,9.05);box(.12,1.1,1.1,CARD,10.6,0,11.2);box(5.5,1.1,.12,CARD,13.3,0,8.5);
-  door(10.6,9.6,1,-Math.PI/2,BALSA);
-  box(.9,.4,.35,BALSA,11.2,0,8.8);
-  const prayerSpots=[];
-  for(const z of [9.25,11.05])for(const [i,x] of [11.5,12.7,13.9,15.1].entries()){
-    box(.7,.03,1.1,i%2?0xa98158:0x86968a,x,.03,z);
-    prayerSpots.push({x,z,f:-1,floor:3,route:[[10,P3],[10,10.1],[x,10.1]],state:'pray',label:'Heading to the prayer room',occupant:null});
+  box(2.4, 1.2, .04, CHAIR, -12.9, 1.7, -11.85, floorOpenPlanGroups[3]);
+  mesh(new THREE.PlaneGeometry(2.3, 1.1), SCREEN_ACTIVE, -12.9, 1.7, -11.82, floorOpenPlanGroups[3], false);
+  box(3.2, .04, .06, METAL, -12.9, 2.4, -9.25, floorOpenPlanGroups[3]);
+  textPlane('GLASS FORUM SUITE', -12.9, -5.8, 5, undefined, floorOpenPlanGroups[3]);
+  confRoom.userData = { type: 'CONFERENCE', name: 'Glass Conference Suite', capacity: 8, material: 'Acoustic Glass, American Walnut & Charcoal Metal', inspectable: true };
+
+  const doors = [];
+  function door(hx, hz, width, base, color) {
+    const pivot = new THREE.Group(); pivot.position.set(hx, 0, hz); pivot.rotation.y = base; pivot.userData.walkable = true; root.add(pivot);
+    box(width - .04, 2.2, .05, color, width / 2, 0, 0, pivot); box(.04, .04, .2, DARK, width - .15, 1.05, 0, pivot);
+    const center = new THREE.Vector3(width / 2, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), base).add(new THREE.Vector3(hx, 0, hz));
+    doors.push({pivot, base, center, floor: 3, open: 0});
   }
-  textPlane('PRAYER ROOM',13.3,7.9,3.6);
-  plant(15,-11,.9);plant(-12.6,-3,.8);restroom(-14.45,-5.05,2.9,2.5,'+x');
-  // Back lounge between the meeting room and the pantry: sofa on a round rug, two armchairs, books and a quote panel.
-  cylinder(3.1,3.1,.03,0xe8cfc0,-2.6,.02,-9.6);
-  sofa(-3.4,-10.9,3.6);
-  cylinder(.6,.6,.06,BALSA,-3.4,.42,-8.9);cylinder(.08,.14,.42,DARK,-3.4,0,-8.9);
-  box(.5,.06,.36,0x5f7d68,-3.5,.48,-8.95);box(.44,.06,.32,CARD,-3.5,.54,-8.95);cylinder(.1,.08,.16,CARD,-3.05,.48,-8.75);
-  for(const [x,z,r,color] of [[.2,-9.8,-1.9,0x6e8f72],[-.2,-7.8,-2.6,0xefe7da]]){
-    const g=new THREE.Group();root.add(g);g.position.set(x,0,z);g.rotation.y=r;
-    mesh(softBox(1.1,.45,1),color,0,.35,0,g,false);mesh(softBox(1.1,.8,.28),color,0,.8,-.42,g,false);
-    for(const s of [-1,1])mesh(softBox(.24,.58,.92),mix(color,INK,.08),s*.5,.46,-.02,g,false);
-    for(const s of [-1,1])for(const t of [-1,1])box(.05,.14,.05,DARK,s*.4,0,t*.35,g);
+  door(-11.9, -6.5, 1.4, 0, 'glass');
+
+  const hangouts = [];
+  for (const x of [-14.2, -13.2, -12.2]) for (const [z, f] of [[-10.35, 1], [-7.65, -1]]) {
+    hangouts.push({x, z, f, floor: 3, route:[[-11.2, P3], [-11.2, z]], state:'meet', label:'Heading to the meeting room', occupant:null});
   }
-  // Bookshelf against the window wall.
-  box(3,2.1,.5,BALSA,4.6,0,-11.55);
-  for(const y of [.7,1.4])box(2.9,.04,.46,0xb89c70,4.6,y,-11.5);
-  for(let i=0;i<16;i++){const row=i>>3;box(.14+(i%3)*.04,.46+(i%4)*.06,.34,[0x2f4a6b,CARD,0xb4623a,0x3f7a58,0x74598c,0xd9a441][i%6],3.35+(i%8)*.33,.06+row*.7,-11.5);}
-  plant(5.4,-11.5,.35,1.44);plant(3.6,-11.5,.3,2.1);
-  // Quote panel, painted like the lettering on the reference walls.
-  {
-    const c=document.createElement('canvas');c.width=512;c.height=384;const ctx=c.getContext('2d');
-    ctx.fillStyle='#fbf8f2';ctx.fillRect(0,0,512,384);ctx.fillStyle='#2f3a33';ctx.font='600 58px Archivo, system-ui, sans-serif';
-    ['Good people','build great','work.'].forEach((line,i)=>ctx.fillText(line,40,110+i*72));
-    ctx.fillStyle='#b4623a';ctx.fillRect(40,316,70,6);
-    const texture=new THREE.CanvasTexture(c);texture.encoding=THREE.sRGBEncoding;
-    box(2.8,2.2,.14,CARD,-7.6,.4,-11.6);for(const s of [-1,1])box(.1,.4,.1,DARK,-7.6+s*1.2,0,-11.6);
-    const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.95),new THREE.MeshBasicMaterial({map:texture}));sign.position.set(-7.6,1.5,-11.52);root.add(sign);
+
+  // 5. Two Acoustic Phone Booths at X = -14.6 and X = -12.4, Z = 10.5
+  for (const x of [-14.6, -12.4]) {
+    const booth = new THREE.Group(); booth.position.set(x, 0, 10.5); floorOpenPlanGroups[3].add(booth);
+    box(1.8, 2.35, 1.8, ACOUSTIC_FELT, 0, 0, 0, booth);
+    box(1.68, 2.25, 1.68, WALL_WHITE, 0, 0, 0, booth);
+    createGlassPartitionWall(1.8, 2.3, x, 0, 9.6, 0, true, floorOpenPlanGroups[3], `L3-Booth-${x}`);
+    mesh(softBox(.9, .06, .4), WALNUT, 0, .98, .4, booth, false);
+    cylinder(.18, .18, .62, METAL, 0, 0, 0, booth);
+    hangouts.push({x, z: 10.6, f: -1, floor: 3, route:[[-11, P3], [-11, 8.8], [x, 8.8]], state:'call', label:'Heading to a phone booth', occupant:null});
+    booth.userData = { type: 'PHONE_BOOTH', name: 'Acoustic Focus Phone Booth', material: 'Recycled PET Acoustic Felt & Tempered Glass', inspectable: true };
   }
-  plant(-9.3,-10.4,.9);plant(8.7,-11.2,1);plant(-.8,-11.3,.8);
-  // Wooden planters with trailing leaves along the front windows.
-  for(const x of [-6,6]){
-    box(3.4,.55,.7,BALSA,x,0,11.35);for(let i=0;i<5;i++)box(.04,.5,.03,0xc9a577,x-1.4+i*.7,.03,11);
-    for(const dx of [-1.1,0,1.1])plant(x+dx,11.35,.42,.55);
+  textPlane('ACOUSTIC PODS', -13.5, 8.9, 4.4, undefined, floorOpenPlanGroups[3]);
+
+  // 6. Moss Pantry & Lounge at X = 11.8, Z = -10.3
+  const pantry = new THREE.Group(); pantry.position.set(11.8, 0, -10.3); floorOpenPlanGroups[3].add(pantry);
+  box(4.6, .9, .85, WALNUT, 0, 0, -.85, pantry);
+  box(4.7, .06, .9, 0xf1ede4, 0, .9, -.85, pantry);
+  box(4.6, 1.3, .04, GREENERY, 0, 1.6, -1.48, pantry);
+  box(.65, .55, .45, CHAIR, 1.2, .96, -.85, pantry);
+  cylinder(.08, .07, .16, CARD, .4, .96, -.8, pantry);
+  box(1.2, .95, 2.8, WALNUT, -1.8, 0, .5, pantry);
+  box(1.3, .06, 2.9, 0xf1ede4, -1.8, .95, .5, pantry);
+  for (let bz = -.4; bz <= 1.4; bz += .9) stool(9.2, -10.3 + bz, .78);
+  sofa(14.8, -7.5, 3.4, -Math.PI / 2);
+  mesh(softBox(1.2, .38, .8), WALNUT, 13.2, 0, -7.5, floorOpenPlanGroups[3], false);
+  textPlane('MOSS PANTRY & CAFE', 11.8, -8.9, 4.2, undefined, floorOpenPlanGroups[3]);
+  pantry.userData = { type: 'PANTRY', name: 'Moss Pantry & Cafe Bar', material: 'American Walnut, Calacatta Stone & Living Preserved Moss', inspectable: true };
+
+  for (const x of [10.6, 12.6]) hangouts.push({x, z: -10.2, f: -1, floor: 3, route:[[10, P3], [10, -10.2]], state:'drink', label:'Heading to the pantry', occupant:null});
+  for (const z of [-8.3, -6.7]) hangouts.push({x: 14.75, z, f: -1, angle: -Math.PI / 2, floor: 3, route:[[10, P3], [10, z]], state:'lounge', label:'Heading to the lounge', occupant:null});
+  hangouts.push({x: 0, z: -2.5, f: -1, angle: Math.PI, floor: 3, route:[[0, P3]], state:'look', label:'Heading to the task board', occupant:null});
+  hangouts.push({x: 0, z: -4.5, f: 1, angle: 0, floor: 3, route:[[1.95, P3], [1.95, -4.5]], state:'look', label:'Heading to the task board', occupant:null});
+
+  // 7. Sanctuary / Prayer Room at X = 13.3, Z = 10.15
+  box(5.3, .02, 3.3, 0xdfe3d6, 13.3, .02, 10.15);
+  box(.12, 1.2, 1.1, WALNUT, 10.6, 0, 9.05);
+  box(.12, 1.2, 1.1, WALNUT, 10.6, 0, 11.2);
+  box(5.5, 1.2, .12, WALNUT, 13.3, 0, 8.5);
+  door(10.6, 9.6, 1, -Math.PI / 2, BALSA);
+  const prayerSpots = [];
+  for (const z of [9.25, 11.05]) for (const [i, x] of [11.5, 12.7, 13.9, 15.1].entries()) {
+    box(.7, .03, 1.1, i % 2 ? 0xa98158 : 0x86968a, x, .03, z);
+    prayerSpots.push({x, z, f: -1, floor: 3, route:[[10, P3], [10, 10.1], [x, 10.1]], state:'pray', label:'Heading to the prayer room', occupant:null});
   }
-  // Two lounge seats on the sofa, reached along the back of the Leadership rug.
-  for(const x of [-4.4,-2.4])hangouts.push({x,z:-10.7,f:1,floor:3,route:[[-9.3,P3],[-9.3,-8],[x,-8]],state:'lounge',label:'Heading to the back lounge',occupant:null});
-  textPlane('LOUNGE',-2.6,-7.3,3.2);
+  textPlane('SANCTUARY', 13.3, 7.9, 3.6);
+
+  // 8. Perimeter Architectural Planters & Ficus Trees
+  for (const x of [-13, -7, 7, 13]) {
+    createBiophilicPlanter(x, 11.4, 'monstera', 1, 0, floorOpenPlanGroups[3]);
+    createBiophilicPlanter(x, -11.4, 'ficus', 1, 0, floorOpenPlanGroups[3]);
+  }
+  restroom(-14.45, -5.05, 2.9, 2.5, '+x');
 
   shell(4);
-  // Rooftop garden: a pergola lounge, and a play deck instead of one long table, so a break is something to do.
+  // Rooftop deck: cedar floor planks
   for(let row=0;row<24;row++)box(31.8,.025,.98,[0xd9bd98,0xe0c7a5,0xd4b590][row%3],0,.031,-11.5+row);
   const roofSpots=[];
   const ROOF_STATUS={'relaxes in the pergola lounge':'relaxing in the pergola lounge','plays ping pong':'playing ping pong','hangs out on the bean bags':'hanging out on the bean bags',
-    'sits on the swing':'sitting on the swing','plays chess':'playing chess','stretches on a yoga mat':'stretching on a yoga mat','plays billiards':'playing billiards','grabs a coffee at the rooftop bar':'having coffee at the rooftop bar'};
+    'sits on the swing':'sitting on the swing','plays chess':'playing chess','stretches on a yoga mat':'stretching on a yoga mat','plays billiards':'playing billiards','grabs a coffee at the rooftop bar':'having coffee at the rooftop bar','sits in the amphitheater for standup':'attending team standup in the amphitheater'};
   // Every rooftop spot keeps the 'break' state; roofPose picks the pose and fun names the activity.
   const roofSpot=(x,z,angle,fun,extra={})=>{const spot={x,z,f:1,angle,floor:4,route:[[x,0]],state:'break',fun,...extra};roofSpots.push(spot);return spot;};
-  box(10,.03,8.7,0xd7c5a7,-6,.06,-6.5);
-  for(const x of [-11,-1])for(const z of [-11,-2])box(.22,3.3,.22,BALSA,x,0,z);
-  for(let x=-11.2;x<=-.8;x+=.65)box(.18,.16,9.6,BALSA,x,3.3,-6.5);
+
+  const roofGlow=new THREE.MeshStandardMaterial({color:0xffe8b2,emissive:0xffcf83,emissiveIntensity:.8});
+  function lantern(x,z,parent=root){
+    box(.42,.06,.42,DARK,x,0,z,parent);box(.42,.06,.42,DARK,x,.65,z,parent);
+    const glow=new THREE.Mesh(new THREE.BoxGeometry(.28,.55,.28),roofGlow);glow.position.set(x,.34,z);parent.add(glow);
+    for(const dx of [-.18,.18])for(const dz of [-.18,.18])box(.035,.6,.035,DARK,x+dx,.05,z+dz,parent);
+  }
+
+  // --- ORIGINAL MODE ROOFTOP (floorOriginalGroups[4]) ---
+  box(10,.03,8.7,0xd7c5a7,-6,.06,-6.5,floorOriginalGroups[4]);
+  for(const x of [-11,-1])for(const z of [-11,-2])box(.22,3.3,.22,BALSA,x,0,z,floorOriginalGroups[4]);
+  for(let x=-11.2;x<=-.8;x+=.65)box(.18,.16,9.6,BALSA,x,3.3,-6.5,floorOriginalGroups[4]);
   sofa(-6.5,-9,5.5);sofa(-10,-5.7,3.7,Math.PI/2);
-  cylinder(1,1,.1,BALSA,-6.5,.55,-6.2);cylinder(.14,.3,.55,DARK,-6.5,0,-6.2);plant(-6.5,-6.2,.3,.65);
-  cylinder(.5,.5,.5,0x8b9d7d,-4,0,-6);
+  cylinder(1,1,.1,BALSA,-6.5,.55,-6.2,floorOriginalGroups[4]);cylinder(.14,.3,.55,DARK,-6.5,0,-6.2,floorOriginalGroups[4]);plant(-6.5,-6.2,.3,.65);
+  cylinder(.5,.5,.5,0x8b9d7d,-4,0,-6,floorOriginalGroups[4]);
+  for(let x=-10;x<=-2;x+=2){
+    box(.02,.35,.02,DARK,x,2.85,-2.1,floorOriginalGroups[4]);
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.16,12,8),roofGlow);bulb.position.set(x,2.82,-2.1);floorOriginalGroups[4].add(bulb);
+  }
+  // Bean bags on a round lawn under a striped parasol (ORIGINAL)
+  cylinder(2.3,2.3,.03,0x9fc17a,4.5,.05,3.2,floorOriginalGroups[4]);
+  cylinder(.42,.42,.05,BALSA,4.5,.34,3.2,floorOriginalGroups[4]);cylinder(.05,.08,.34,DARK,4.5,0,3.2,floorOriginalGroups[4]);
+  cylinder(.035,.035,2.9,CARD,4.5,.39,3.2,floorOriginalGroups[4]);
+  cylinder(.02,1.05,.4,0xe8634a,4.5,2.95,3.2,floorOriginalGroups[4]);cylinder(.02,.6,.22,0xfbf6ee,4.5,3.12,3.2,floorOriginalGroups[4]);
+  [[0xe8866c,0],[0xe0b04f,Math.PI/2],[0x5f9a94,Math.PI],[0xa594c6,-Math.PI/2]].forEach(([color,a])=>{
+    const x=4.5+Math.sin(a)*1.35,z=3.2+Math.cos(a)*1.35;
+    const ob1 = oval(1.05,.55,1.05,color,x,.28,z,floorOriginalGroups[4]);
+    const ob2 = oval(.9,.7,.4,color,x+Math.sin(a)*.38,.55,z+Math.cos(a)*.38,floorOriginalGroups[4]);
+  });
+  // Swing bench for two
+  for(const x of [9.5,12.1])for(const z of [4.55,5.45])box(.1,2.35,.1,BALSA,x,0,z,floorOriginalGroups[4]);
+  box(2.75,.12,.12,BALSA,10.8,2.3,5,floorOriginalGroups[4]);box(2.75,.12,1,BALSA,10.8,2.35,5,floorOriginalGroups[4]);
+  for(const x of [9.95,11.65])box(.025,1.72,.025,DARK,x,.6,5.05,floorOriginalGroups[4]);
+  box(1.9,.08,.6,0xe8866c,10.8,.48,5.05,floorOriginalGroups[4]);box(1.9,.55,.07,0xe8866c,10.8,.56,4.78,floorOriginalGroups[4]);
+  // Flower bed in the middle of the deck (ORIGINAL)
+  box(2.6,.4,.9,0xe7dfce,1.6,0,-1.2,floorOriginalGroups[4]);
+  for(let i=0;i<9;i++)oval(.26,.26,.26,[0xe8634a,0xf0c24f,0xf3efe6,0xa594c6][i%4],.6+(i%5)*.5,.5+(i%2)*.08,-1.45+Math.floor(i/5)*.5,floorOriginalGroups[4]);
+
+  // --- MODERN OPEN-PLAN ROOFTOP (floorOpenPlanGroups[4]) ---
+  // 1. Sunken Cedar Amphitheater (BLUEPRINT Level 04: Tiered cedar seating with presentation stage)
+  const amphGroup = new THREE.Group(); amphGroup.position.set(-1.0, 0, 3.5); floorOpenPlanGroups[4].add(amphGroup);
+  // Three cascading cedar tiers with recessed LED illumination strips
+  const tierConfigs = [
+    { w: 7.5, h: 0.22, d: 1.0, z: 1.3, label: 'Front Tier' },
+    { w: 9.2, h: 0.44, d: 1.0, z: 2.3, label: 'Middle Tier' },
+    { w: 10.8, h: 0.66, d: 1.0, z: 3.3, label: 'Upper Tier' }
+  ];
+  tierConfigs.forEach((tier, ti) => {
+    mesh(softBox(tier.w, tier.h, tier.d), CEDAR, 0, tier.h / 2, tier.z, amphGroup, false);
+    // Dark walnut bullnose trim along the front edge of each tier
+    box(tier.w, .04, .06, WALNUT, 0, tier.h - .02, tier.z - tier.d / 2, amphGroup);
+    // Recessed LED step-lighting strip beneath each step riser
+    const stepLight = new THREE.Mesh(new THREE.BoxGeometry(tier.w - .2, .03, .03), roofGlow);
+    stepLight.position.set(0, tier.h - .03, tier.z - tier.d / 2 - .02);
+    amphGroup.add(stepLight);
+    // Charcoal acoustic cushions along each tier
+    const cushionCount = 4 + ti * 2;
+    for (let c = 0; c < cushionCount; c++) {
+      const cx = (-tier.w / 2 + .7) + (c * (tier.w - 1.4) / (cushionCount - 1));
+      mesh(softBox(.65, .06, .55), ACOUSTIC_FELT, cx, tier.h + .03, tier.z, amphGroup, false);
+    }
+  });
+  // Presentation Stage at front of amphitheater
+  mesh(softBox(4.2, .18, 2.2), WALNUT, 0, .09, -.3, amphGroup, false);
+  box(4.4, .02, 2.4, METAL, 0, 0, -.3, amphGroup);
+  // Minimalist architectural lectern / speaker podium
+  box(.5, 1.05, .38, METAL, 0, .6, -.9, amphGroup);
+  box(.55, .04, .42, WALNUT, 0, 1.13, -.9, amphGroup);
+  // Stage presentation AV wall backdrop
+  box(4.2, 2.3, .08, WALNUT, 0, 1.15, -1.5, amphGroup);
+  mesh(new THREE.PlaneGeometry(4.0, 2.1), SCREEN_ACTIVE, 0, 1.15, -1.45, amphGroup, false);
+  textPlane('SUNKEN CEDAR AMPHITHEATER', 0, 3.8, 6.2, '#9a6212', amphGroup);
+  amphGroup.userData = {
+    type: 'AMPHITHEATER',
+    name: 'Sunken Cedar Amphitheater',
+    capacity: '28-32 Attendees · Team Standup Stage',
+    material: 'Tiered Western Red Cedar Risers, Recessed LED Strips & Walnut Stage',
+    inspectable: true
+  };
+
+  // Register amphitheater spots for all-hands standups
+  for (const [x, z] of [[-3.2, 4.8], [-1.0, 4.8], [1.2, 4.8], [-4.0, 5.8], [-2.0, 5.8], [0.0, 5.8], [2.0, 5.8], [-4.8, 6.8], [-2.5, 6.8], [-0.2, 6.8], [2.1, 6.8], [4.4, 6.8]]) {
+    roofSpot(x, z, 0, 'sits in the amphitheater for standup', {roofPose:'beanbag'});
+  }
+
+  // 2. Reflective Koi Pond at X = 3.0, Z = 9.0 (BLUEPRINT Level 04: Reflective Koi Pond with floating slate stepping stones)
+  const pondGroup = new THREE.Group(); pondGroup.position.set(3.0, 0, 9.0); floorOpenPlanGroups[4].add(pondGroup);
+  // Honed dark granite basin rim
+  box(6.2, .36, 4.4, METAL, 0, .18, 0, pondGroup);
+  box(6.3, .06, 4.5, 0x1e293b, 0, .36, 0, pondGroup);
+  // Deep reflective translucent water surface
+  const pondWater = mesh(new THREE.PlaneGeometry(5.8, 4.0), materials.get(WATER), 0, .30, 0, pondGroup, false);
+  pondWater.rotation.x = -Math.PI / 2;
+  // Floating natural slate stepping stones crossing the pond along longitudinal axis
+  for (let i = 0; i < 5; i++) {
+    const sz = -1.6 + i * .8;
+    const sx = (i % 2 === 0) ? -.25 : .25;
+    cylinder(.38, .38, .09, ACOUSTIC_FELT, sx, .32, sz, pondGroup);
+  }
+  // Floating Nymphaea water lily pads
+  for (let i = 0; i < 7; i++) {
+    const a = i * 0.95;
+    const rad = .8 + (i % 3) * .55;
+    const lily = cylinder(.24, .24, .01, 0x3f6b45, Math.sin(a) * rad, .31, Math.cos(a) * (rad * .7), pondGroup);
+    lily.rotation.y = a;
+  }
+  // Japanese stone lanterns framing the pond
+  lantern(-2.6, -1.8, pondGroup);
+  lantern(2.6, -1.8, pondGroup);
+  lantern(-2.6, 1.8, pondGroup);
+  lantern(2.6, 1.8, pondGroup);
+  textPlane('REFLECTIVE KOI POND', 0, 1.8, 4.2, '#1e3a5f', pondGroup);
+  pondGroup.userData = {
+    type: 'KOI_POND',
+    name: 'Reflective Koi Pond & Stepping Stones',
+    material: 'Honed Charcoal Granite Basin, Tempered Mirror Water & Natural Slate Stones',
+    inspectable: true
+  };
+
+  // 3. Timber Pergola Executive Canopy at X = -6.0, Z = -6.5 (BLUEPRINT Level 04: Timber Pergola Canopy)
+  const pergolaGroup = new THREE.Group(); pergolaGroup.position.set(-6.0, 0, -6.5); floorOpenPlanGroups[4].add(pergolaGroup);
+  box(10, .04, 8.7, CEDAR, 0, .06, 0, pergolaGroup);
+  // Timber posts and rafters
+  for (const x of [-5, 5]) for (const z of [-4.2, 4.2]) box(.24, 3.4, .24, WALNUT, x, 0, z, pergolaGroup);
+  for (let x = -5.2; x <= 5.2; x += .65) box(.16, .18, 9.6, WALNUT, x, 3.4, 0, pergolaGroup);
+  // Modern L-shaped upholstered modular sofa in charcoal fabric
+  mesh(softBox(5.6, .45, 1.1), ACOUSTIC_FELT, -.5, .22, -2.5, pergolaGroup, false);
+  mesh(softBox(5.6, .72, .24), ACOUSTIC_FELT, -.5, .55, -3.05, pergolaGroup, false);
+  mesh(softBox(1.1, .45, 3.8), ACOUSTIC_FELT, -3.8, .22, .8, pergolaGroup, false);
+  mesh(softBox(.24, .72, 3.8), ACOUSTIC_FELT, -4.35, .55, .8, pergolaGroup, false);
+  // Low walnut coffee table
+  mesh(softBox(1.8, .34, .95), WALNUT, -.5, .17, -.4, pergolaGroup, false);
+  createBiophilicPlanter(-.5, -.4, 'ficus', .8, .34, pergolaGroup);
+  lantern(-4.2, -3.2, pergolaGroup);
+  lantern(4.2, -3.2, pergolaGroup);
+  textPlane('TIMBER PERGOLA LOUNGE', 0, 3.6, 5.0, '#4a2f20', pergolaGroup);
+  pergolaGroup.userData = {
+    type: 'LOUNGE',
+    name: 'Timber Pergola Executive Canopy',
+    material: 'Solid Cedar Slats, Dark Powdercoat Posts & Weatherproof Sunbrella Upholstery',
+    inspectable: true
+  };
+
+  // Shared Recreation Spots
   for(const x of [-8,-6])roofSpot(x,-8.8,0,'relaxes in the pergola lounge');
   for(const z of [-6.4,-4.8])roofSpot(-9.8,z,Math.PI/2,'relaxes in the pergola lounge');
-  const roofGlow=new THREE.MeshStandardMaterial({color:0xffe8b2,emissive:0xffcf83,emissiveIntensity:.8});
-  function lantern(x,z){
-    box(.42,.06,.42,DARK,x,0,z);box(.42,.06,.42,DARK,x,.65,z);
-    const glow=new THREE.Mesh(new THREE.BoxGeometry(.28,.55,.28),roofGlow);glow.position.set(x,.34,z);root.add(glow);
-    for(const dx of [-.18,.18])for(const dz of [-.18,.18])box(.035,.6,.035,DARK,x+dx,.05,z+dz);
-  }
-  for(let x=-10;x<=-2;x+=2){
-    box(.02,.35,.02,DARK,x,2.85,-2.1);
-    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.16,12,8),roofGlow);bulb.position.set(x,2.82,-2.1);root.add(bulb);
-  }
+
+  // 4. Perimeter Planters & Glass Parapets (Shared)
   for(const [x,z,w,d] of [[-7,11,8,.8],[5,11,8,.8],[7,-11,8,.8],[15,5,.8,6]]){
     box(w,.65,d,0xe7dfce,x,0,z);
     for(let i=-1;i<=1;i++)plant(x+(w>d?i*w*.3:0),z+(d>w?i*d*.3:0),.6,.65);
@@ -480,6 +1112,7 @@
   for(const [x,z] of [[-12,10],[11,10],[-12,-10],[12,-10]])lantern(x,z);
   plant(1,-10.5,1.3);plant(13,-10.5,1.25);restroom(14.55,10.6,2.6,2.5,'-x');
   textPlane('ROOFTOP GARDEN',3,9,8);
+
   // Rooftop door from the stair core: a white frame with two glass leaves, always open and folded back inside.
   const DOOR_FRAME=0xf6f4ef;
   box(.22,.85,.8,CARD,-16,0,5.9);
@@ -487,74 +1120,72 @@
   box(.2,.16,2.36,DOOR_FRAME,-16,2.3,7.4);
   for(const [z,dir] of [[6.37,1],[8.43,-1]]){
     const leaf=new THREE.Group();leaf.position.set(-16,0,z);leaf.rotation.y=dir>0?Math.PI/2:-Math.PI/2;root.add(leaf);
-    // Hinged at the frame and swung 90 degrees into the rooftop, lying along the edge of the opening.
     box(.06,2.15,1.05,DOOR_FRAME,0,.08,dir*.54,leaf);box(.02,1.9,.86,'glass',0,.2,dir*.54,leaf);box(.08,.05,.3,DARK,.05,1.05,dir*.95,leaf);
   }
-  // Ping pong, with a player at each end.
-  for(const sx of [-1,1])for(const sz of [-1,1])box(.07,.7,.07,DARK,6+sx*1.2,0,-5.5+sz*.6);
-  box(2.74,.05,1.52,0x2f6f8f,6,.7,-5.5);
-  for(const z of [-6.24,-4.76])box(2.74,.006,.03,CARD,6,.75,z);box(2.74,.006,.02,CARD,6,.75,-5.5);
-  box(.03,.15,1.64,0xf3efe6,6,.75,-5.5);mesh(new THREE.SphereGeometry(.035,10,8),0xf0a531,6.7,1.05,-5.3,root,false);
+
+  // 5. Ping Pong Table at X = 6.0, Z = -5.5 (BLUEPRINT Level 04)
+  const pingPongGroup = new THREE.Group(); pingPongGroup.position.set(6, 0, -5.5); root.add(pingPongGroup);
+  for(const sx of [-1,1])for(const sz of [-1,1])box(.07,.7,.07,DARK,sx*1.2,0,sz*.6,pingPongGroup);
+  box(2.74,.05,1.52,0x2f6f8f,0,.7,0,pingPongGroup);
+  for(const z of [-.74,.74])box(2.74,.006,.03,CARD,0,.75,z,pingPongGroup);box(2.74,.006,.02,CARD,0,.75,0,pingPongGroup);
+  box(.03,.15,1.64,0xf3efe6,0,.75,0,pingPongGroup);mesh(new THREE.SphereGeometry(.035,10,8),0xf0a531,.7,1.05,.2,pingPongGroup,false);
   roofSpot(4.1,-5.5,Math.PI/2,'plays ping pong',{standing:true,roofPose:'pingpong'});
   roofSpot(7.9,-5.5,-Math.PI/2,'plays ping pong',{standing:true,roofPose:'pingpong'});
   textPlane('PING PONG',6,-3.6,3);
-  // Bean bags on a round lawn under a striped parasol.
-  cylinder(2.3,2.3,.03,0x9fc17a,4.5,.05,3.2);
-  cylinder(.42,.42,.05,BALSA,4.5,.34,3.2);cylinder(.05,.08,.34,DARK,4.5,0,3.2);
-  // A tall, narrow cafe parasol, so people on the bean bags stay visible from above.
-  cylinder(.035,.035,2.9,CARD,4.5,.39,3.2);
-  cylinder(.02,1.05,.4,0xe8634a,4.5,2.95,3.2);cylinder(.02,.6,.22,0xfbf6ee,4.5,3.12,3.2);
-  [[0xe8866c,0],[0xe0b04f,Math.PI/2],[0x5f9a94,Math.PI],[0xa594c6,-Math.PI/2]].forEach(([color,a])=>{
-    const x=4.5+Math.sin(a)*1.35,z=3.2+Math.cos(a)*1.35;
-    oval(1.05,.55,1.05,color,x,.28,z);oval(.9,.7,.4,color,x+Math.sin(a)*.38,.55,z+Math.cos(a)*.38);
-    roofSpot(x,z,a+Math.PI,'hangs out on the bean bags',{roofPose:'beanbag'});
-  });
-  // Swing bench for two, facing the front of the roof.
-  for(const x of [9.5,12.1])for(const z of [4.55,5.45])box(.1,2.35,.1,BALSA,x,0,z);
-  box(2.75,.12,.12,BALSA,10.8,2.3,5);box(2.75,.12,1,BALSA,10.8,2.35,5);
-  for(const x of [9.95,11.65])box(.025,1.72,.025,DARK,x,.6,5.05);
-  box(1.9,.08,.6,0xe8866c,10.8,.48,5.05);box(1.9,.55,.07,0xe8866c,10.8,.56,4.78);
+  pingPongGroup.userData = { type: 'RECREATION', name: 'Architectural Ping Pong Table', material: 'Matte Navy Tournament Surface & Dark Steel Legs', inspectable: true };
+
+  // Swing bench for two
   for(const x of [10.35,11.25])roofSpot(x,5.12,0,'sits on the swing');
-  // Chess table with two low stools.
-  cylinder(.45,.45,.05,BALSA,11.2,.68,-1.3);cylinder(.06,.14,.68,DARK,11.2,0,-1.3);
+
+  // 6. Chess Table at X = 11.2, Z = -1.3 (BLUEPRINT Level 04)
+  const chessGroup = new THREE.Group(); chessGroup.position.set(11.2, 0, -1.3); root.add(chessGroup);
+  cylinder(.45,.45,.05,WALNUT,0,.68,0,chessGroup);cylinder(.06,.14,.68,DARK,0,0,0,chessGroup);
   {
     const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d');
     for(let i=0;i<8;i++)for(let j=0;j<8;j++){ctx.fillStyle=(i+j)%2?'#5b4636':'#efe4cf';ctx.fillRect(i*16,j*16,16,16);}
     const texture=new THREE.CanvasTexture(c);texture.encoding=THREE.sRGBEncoding;texture.magFilter=THREE.NearestFilter;
-    const board=new THREE.Mesh(new THREE.PlaneGeometry(.5,.5),new THREE.MeshBasicMaterial({map:texture}));board.rotation.x=-Math.PI/2;board.position.set(11.2,.735,-1.3);root.add(board);
-    for(let i=0;i<6;i++)cylinder(.025,.03,.07+(i%3)*.02,i<3?0xfbf6ee:DARK,11.05+(i%3)*.1,.735,i<3?-1.48:-1.12);
+    const board=new THREE.Mesh(new THREE.PlaneGeometry(.5,.5),new THREE.MeshBasicMaterial({map:texture}));board.rotation.x=-Math.PI/2;board.position.set(0,.735,0);chessGroup.add(board);
+    for(let i=0;i<6;i++)cylinder(.025,.03,.07+(i%3)*.02,i<3?0xfbf6ee:DARK,-.15+(i%3)*.1,.735,i<3?-.18:.18,chessGroup);
   }
   stool(10.3,-1.3,.45);stool(12.1,-1.3,.45);
   roofSpot(10.3,-1.3,Math.PI/2,'plays chess');roofSpot(12.1,-1.3,-Math.PI/2,'plays chess');
-  // Two yoga mats by the back planter.
-  for(const [x,color] of [[10.1,0x7fa98a],[11.7,0xd98f7a]]){
-    box(.7,.02,1.8,color,x,.06,-8.3);
-    roofSpot(x,-8.1,0,'stretches on a yoga mat',{standing:true,roofPose:'stretch'});
+  chessGroup.userData = { type: 'RECREATION', name: 'Artisan Chess Table & Stools', material: 'Inlaid Walnut & Maple with Handcrafted Boxwood Pieces', inspectable: true };
+
+  // 7. Yoga Meadow at X = 10.1, Z = -8.3 (BLUEPRINT Level 04)
+  const yogaGroup = new THREE.Group(); yogaGroup.position.set(10.9, 0, -8.3); root.add(yogaGroup);
+  for(const [ox,color] of [[-.8,0x7fa98a],[.8,0xd98f7a]]){
+    box(.7,.02,1.8,color,ox,.06,0,yogaGroup);
   }
-  // Flower bed in the middle of the deck.
-  box(2.6,.4,.9,0xe7dfce,1.6,0,-1.2);
-  for(let i=0;i<9;i++)oval(.26,.26,.26,[0xe8634a,0xf0c24f,0xf3efe6,0xa594c6][i%4],.6+(i%5)*.5,.5+(i%2)*.08,-1.45+Math.floor(i/5)*.5);
-  // Billiard table, front left.
-  for(const sx of [-1,1])for(const sz of [-1,1])box(.16,.72,.16,0x5a3d2a,-6+sx*1.25,0,6+sz*.6);
-  box(2.9,.14,1.6,0x6b4a33,-6,.72,6);box(2.6,.02,1.3,0x3d7a5a,-6,.86,6);
-  for(const x of [-7.35,-6,-4.65])for(const z of [5.3,6.7])cylinder(.07,.07,.02,DARK,x,.87,z);
-  [[CARD,-5.2,6],[ACCENT,-6.7,6],[0xd8a13a,-6.8,5.93],[0xd8a13a,-6.8,6.07],[0x2f4a6b,-6.9,5.86],[DARK,-6.9,6],[0x3f7a58,-6.9,6.14]]
-    .forEach(([color,x,z])=>mesh(new THREE.SphereGeometry(.05,12,8),color,x,.93,z,root,false));
-  const spareCue=mesh(new THREE.CylinderGeometry(.012,.02,1.45,8),BALSA,-6,.9,5.25,root,false);spareCue.rotation.z=Math.PI/2;
+  roofSpot(10.1,-8.1,0,'stretches on a yoga mat',{standing:true,roofPose:'stretch'});
+  roofSpot(11.7,-8.1,0,'stretches on a yoga mat',{standing:true,roofPose:'stretch'});
+  yogaGroup.userData = { type: 'RECREATION', name: 'Open-Air Yoga Meadow', material: 'Organic Eco-Rubber Mats & Biophilic Living Turf', inspectable: true };
+
+  // 8. Billiard Table at X = -6.0, Z = 6.0 (BLUEPRINT Level 04)
+  const billiardGroup = new THREE.Group(); billiardGroup.position.set(-6, 0, 6); root.add(billiardGroup);
+  for(const sx of [-1,1])for(const sz of [-1,1])box(.16,.72,.16,0x5a3d2a,sx*1.25,0,sz*.6,billiardGroup);
+  box(2.9,.14,1.6,0x6b4a33,0,.72,0,billiardGroup);box(2.6,.02,1.3,0x3d7a5a,0,.86,0,billiardGroup);
+  for(const x of [-1.35,0,1.35])for(const z of [-.7,.7])cylinder(.07,.07,.02,DARK,x,.87,z,billiardGroup);
+  [[CARD,.8,0],[ACCENT,-.7,0],[0xd8a13a,-.8,-.07],[0xd8a13a,-.8,.07],[0x2f4a6b,-.9,-.14],[DARK,-.9,0],[0x3f7a58,-.9,.14]]
+    .forEach(([color,x,z])=>mesh(new THREE.SphereGeometry(.05,12,8),color,x,.93,z,billiardGroup,false));
+  const spareCue=mesh(new THREE.CylinderGeometry(.012,.02,1.45,8),BALSA,0,.9,-.75,billiardGroup,false);spareCue.rotation.z=Math.PI/2;
   textPlane('BILLIARDS',-6,8.1,3);
   roofSpot(-8,6.3,Math.PI/2,'plays billiards',{standing:true,roofPose:'billiard'});
   roofSpot(-4,5.7,-Math.PI/2,'plays billiards',{standing:true,roofPose:'billiard'});
-  // Coffee bar along the right parapet.
-  box(.8,1,4,0x8a6a4a,15.2,0,-1);box(.9,.06,4.1,CARD,15.2,1,-1);
-  box(.5,.6,.45,DARK,15.25,1.06,-2.2);box(.3,.08,.25,0x8a8479,15.1,1.06,-2.2);
-  cylinder(.12,.14,.45,DARK,15.25,1.06,-1.5);
-  for(const z of [-.7,-.35,0,.35])cylinder(.07,.06,.14,CARD,15,1.06,z);
-  for(const z of [-2.4,.4])cylinder(.2,.22,.72,DARK,14.3,0,z);
+  billiardGroup.userData = { type: 'RECREATION', name: 'Tournament Billiards Table', material: 'Solid American Walnut, Wool Worsted Cloth & Slate Bed', inspectable: true };
+
+  // 9. Rooftop Espresso Bar at X = 15.2, Z = -1.0 (BLUEPRINT Level 04)
+  const coffeeGroup = new THREE.Group(); coffeeGroup.position.set(15.2, 0, -1); root.add(coffeeGroup);
+  box(.8,1,4,WALNUT,0,0,0,coffeeGroup);box(.9,.06,4.1,0xf1ede4,0,1,0,coffeeGroup);
+  box(.5,.6,.45,DARK,.05,1.06,-1.2,coffeeGroup);box(.3,.08,.25,0x8a8479,-.1,1.06,-1.2,coffeeGroup);
+  cylinder(.12,.14,.45,DARK,.05,1.06,-.5,coffeeGroup);
+  for(const z of [.3,.65,1,1.35])cylinder(.07,.06,.14,CARD,-.2,1.06,z-1,coffeeGroup);
+  for(const z of [-1.4,1.4])cylinder(.2,.22,.72,DARK,-.9,0,z,coffeeGroup);
   textPlane('COFFEE',13.2,2.3,2.4);
-  for(let i=0;i<13;i++)box(.06,.85,.035,0xc9a577,14.78,.08,-2.8+i*.3);
-  for(const y of [1.8,2.3])box(.65,.07,4.2,BALSA,15.5,y,-1);
-  for(const z of [-2.5,-1.5,-.5,.5]){plant(15.5,z,.22,2.37);cylinder(.08,.07,.17,CARD,15.45,1.87,z);}
+  for(let i=0;i<13;i++)box(.06,.85,.035,0xc9a577,-.42,.08,-1.8+i*.3,coffeeGroup);
+  for(const y of [1.8,2.3])box(.65,.07,4.2,BALSA,.3,y,0,coffeeGroup);
+  for(const z of [-1.5,-.5,.5,1.5]){plant(15.5,-1+z,.22,2.37);cylinder(.08,.07,.17,CARD,15.45,1.87,-1+z);}
   roofSpot(14.1,-1,Math.PI/2,'grabs a coffee at the rooftop bar',{standing:true,roofPose:'coffee'});
+  coffeeGroup.userData = { type: 'PANTRY', name: 'Rooftop Specialty Espresso Bar', material: 'Fluted American Walnut, Calacatta Marble & Dual-Group Espresso Machine', inspectable: true };
 
   function flight(x,z1,z2,y1,y2,parent) {
     const steps=16,run=(z2-z1)/steps,rise=(y2-y1)/steps;
@@ -1514,7 +2145,11 @@
     if(transition)stepTransition(Infinity);
     const from=activeFloor;activeFloor=level;buildingMood(level===0);if(clearSelection)selectAgent(null);
     showLevels(level?[level]:[1,2,3,4],level===0);skyline.visible=facade.visible=level===0;
-    document.querySelectorAll('[data-floor]').forEach(b=>b.setAttribute('aria-pressed',Number(b.dataset.floor)===level?'true':'false'));
+    document.querySelectorAll('[data-floor]').forEach(b=>{
+      const isLevel=Number(b.dataset.floor)===level;
+      b.setAttribute('aria-pressed',isLevel?'true':'false');
+      b.classList.toggle('active',isLevel);
+    });
     const fk=$('floorKicker'),ft=$('floorTitle'),fd=$('floorDescription');
     if(fk)fk.textContent=level?`Biome 0${level} / 04`:'Campus Overview';
     if(ft)ft.textContent=level?FLOOR[level].title:'The Solarium Campus, bottom to top.';
@@ -1576,6 +2211,39 @@
   $('bZoomIn').onclick=()=>cam.radius*=.85;$('bZoomOut').onclick=()=>cam.radius/=.85;
   $('bRotate').onclick=()=>{cam.spin=3;};
   $('bTasks').onclick=()=>window.officeTasks.open();
+
+  // Layout mode controls in HUD
+  $('hud-mode-orig')?.addEventListener('click',()=>setLayoutMode('ORIGINAL'));
+  $('hud-mode-open')?.addEventListener('click',()=>setLayoutMode('OPEN_PLAN'));
+  $('btn-toggle-layout')?.addEventListener('click',()=>setLayoutMode(layoutMode==='OPEN_PLAN'?'ORIGINAL':'OPEN_PLAN'));
+
+  // Camera preset views
+  $('btn-cam-orbit')?.addEventListener('click',()=>{if(follow)stopFollow();resetCamera();});
+  $('btn-cam-iso')?.addEventListener('click',()=>{
+    if(follow)stopFollow();
+    cam.target.set(0,floorY(activeFloor),0);
+    cam.theta=-Math.PI/4;
+    cam.phi=Math.PI/3.2;
+    cam.radius=64;
+    cam.spin=0;
+  });
+  $('btn-cam-walkway')?.addEventListener('click',()=>{
+    if(follow)stopFollow();
+    cam.target.set(0,floorY(activeFloor)+1.25,0);
+    cam.theta=0;
+    cam.phi=1.45;
+    cam.radius=16;
+    cam.spin=0;
+  });
+  $('btn-cam-top')?.addEventListener('click',()=>{
+    if(follow)stopFollow();
+    cam.target.set(0,floorY(activeFloor),0);
+    cam.theta=0;
+    cam.phi=0.05;
+    cam.radius=58;
+    cam.spin=0;
+  });
+
   const keys={};
   addEventListener('keydown',event=>{
     if(event.key==='Escape'&&follow&&!$('taskDialog').open){stopFollow();return;}
@@ -1601,8 +2269,37 @@
       while(o.parent&&o.parent!==scene)o=o.parent;
       const level=Number(Object.keys(floors).find(k=>floors[k]===o));if(level)setFloor(level);return;
     }
+
+    // 1. Raycast team agents
     const visible=agents.filter(a=>a.g.visible&&visibleAgent(a)).map(a=>a.g);
-    const hit=ray.intersectObjects(visible,true)[0];selectAgent(hit?hit.object.userData.agent:null);
+    const agentHit=ray.intersectObjects(visible,true)[0];
+    if(agentHit&&agentHit.object.userData.agent){
+      selectAgent(agentHit.object.userData.agent);
+      hideObjectInspector();
+      return;
+    }
+
+    // 2. Raycast inspectable architectural furniture, partitions and facilities
+    const activeFloorGroup=floors[activeFloor];
+    if(activeFloorGroup){
+      const candidates=ray.intersectObject(activeFloorGroup,true);
+      for(const candidate of candidates){
+        let cur=candidate.object;
+        while(cur&&cur!==activeFloorGroup&&cur!==scene){
+          if(cur.userData&&(cur.userData.inspectable||cur.userData.type)){
+            selectAgent(null);
+            highlightObject(cur);
+            showObjectInspector(cur.userData);
+            return;
+          }
+          cur=cur.parent;
+        }
+      }
+    }
+
+    // 3. Clicked empty ground
+    selectAgent(null);
+    hideObjectInspector();
   }
   canvas.addEventListener('contextmenu',event=>event.preventDefault());
   canvas.addEventListener('pointerdown',event=>{
@@ -1779,6 +2476,35 @@
         return true;
       },
       setFloor:level=>setFloor(Number(level)),
+      setLayoutMode:mode=>setLayoutMode(mode),
+      getLayoutMode:()=>layoutMode,
+      getPartitionRegistry:()=>partitionRegistry,
+      inspectObject:data=>showObjectInspector(data),
+      closeInspector:()=>hideObjectInspector(),
+      setCameraPreset:preset=>{
+        if(follow)stopFollow();
+        if(preset==='orbit'){
+          resetCamera();
+        }else if(preset==='iso'){
+          cam.target.set(0,floorY(activeFloor),0);
+          cam.theta=-Math.PI/4;
+          cam.phi=Math.PI/3.2;
+          cam.radius=64;
+          cam.spin=0;
+        }else if(preset==='walkway'){
+          cam.target.set(0,floorY(activeFloor)+1.25,0);
+          cam.theta=0;
+          cam.phi=1.45;
+          cam.radius=16;
+          cam.spin=0;
+        }else if(preset==='top'){
+          cam.target.set(0,floorY(activeFloor),0);
+          cam.theta=0;
+          cam.phi=0.05;
+          cam.radius=58;
+          cam.spin=0;
+        }
+      },
     command:action=>{
       if(action==='standup'){$('bStandup').click();return true;}
       if(action==='focus'){$('bFocus').click();return true;}
